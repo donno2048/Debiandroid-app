@@ -1,0 +1,276 @@
+import java.nio.file.Files
+import java.nio.file.Paths
+
+import groovy.json.JsonSlurper
+
+import org.apache.commons.io.IOUtils
+import org.apache.commons.compress.archivers.ar.ArArchiveInputStream
+import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry
+import org.apache.commons.compress.archivers.tar.TarConstants
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
+import org.tukaani.xz.XZInputStream
+
+buildscript {
+    dependencies {
+        classpath "org.tukaani:xz:1.10"
+    }
+}
+
+plugins {
+    id 'com.android.application'
+}
+
+dependencies {
+    implementation "com.github.Termux.termux-app:terminal-view:0.118.0"
+    implementation "org.apache.commons:commons-compress:1.28.0"
+}
+
+def abi = providers.gradleProperty("abi").get()
+def debianArch = [
+        "arm64-v8a": "arm64",
+        "armeabi-v7a": "arm",
+        "x86": "386",
+        "x86_64": "amd64"
+][abi]
+def termuxArch = [
+        "arm64-v8a": "aarch64",
+        "armeabi-v7a": "arm",
+        "x86": "i686",
+        "x86_64": "x86_64"
+][abi]
+if (!termuxArch) throw new GradleException("Unsupported ABI: $abi")
+
+def workDir = layout.buildDirectory.dir("embedded/$abi").get().asFile
+def rootfsTar = file("$workDir/debian-sid.tar")
+def jniOut = file("src/main/jniLibs/$abi")
+
+android {
+    namespace "dev.debiandroid"
+    compileSdk 35
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    defaultConfig {
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        ndk { abiFilters abi }
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+        doNotStrip "**/libproot.so"
+        doNotStrip "**/libproot-loader.so"
+        doNotStrip "**/libtermux.so"
+        doNotStrip "**/libtalloc.so"
+        doNotStrip "**/libandroid-shmem.so"
+        doNotStrip "**/libandroid-sysv-semaphore.so"
+    }
+}
+
+def httpGet = { String url, Map<String,String> headers = [:] ->
+    def conn = new URL(url).openConnection()
+    headers.each { k, v -> conn.setRequestProperty(k, v) }
+    return conn
+}
+
+def download = { String url, File out, Map<String,String> headers = [:] ->
+    out.parentFile.mkdirs()
+    httpGet(url, headers).inputStream.withCloseable { input ->
+        out.withOutputStream { output -> input.transferTo(output) }
+    }
+}
+
+def dockerJson = { String url, String token ->
+    return new JsonSlurper().parseText(new String(httpGet(url, ["Authorization": "Bearer $token"]).inputStream.bytes, "UTF-8"))
+}
+
+tasks.register("fetchRootfs") {
+    outputs.file(rootfsTar)
+
+    doLast {
+        workDir.mkdirs()
+        def token = new JsonSlurper().parseText(new String(httpGet("https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/debian:pull").inputStream.bytes, "UTF-8")).token
+
+        def imageDir = file("$workDir/oci")
+        imageDir.mkdirs()
+        def layerFiles = []
+
+        def manifestDigest = dockerJson("https://registry-1.docker.io/v2/library/debian/manifests/sid-slim", token).manifests.find {
+            it.platform.architecture == debianArch
+        }.digest
+        dockerJson("https://registry-1.docker.io/v2/library/debian/manifests/$manifestDigest", token).layers.eachWithIndex { layer, i ->
+            def layerFile = file("$imageDir/layer-${i}.tar.gz")
+            download(
+                "https://registry-1.docker.io/v2/library/debian/blobs/${layer.digest}",
+                layerFile,
+                ["Authorization": "Bearer $token"]
+            )
+            layerFiles << layerFile
+        }
+
+        def target = file("$imageDir/rootfs")
+        target.mkdirs()
+
+        layerFiles.each { layerFile ->
+            new TarArchiveInputStream(new GzipCompressorInputStream(new FileInputStream(layerFile))).withCloseable { tar ->
+                def e
+                while ((e = tar.nextTarEntry) != null) {
+                    def out = new File(target, e.name)
+                    if (e.isDirectory()) {
+                        out.mkdirs()
+                    } else if (e.isSymbolicLink()) {
+                        Files.createSymbolicLink(out.toPath(), Paths.get(e.linkName))
+                    } else if (e.isLink()) {
+                        Files.createLink(out.toPath(), new File(target, e.linkName).toPath())
+                    } else if (e.isFile()) {
+                        out.withOutputStream { os -> tar.transferTo(os) }
+                        out.setExecutable((e.mode & 0100) != 0, false)
+                        out.setReadable((e.mode & 0400) != 0, false)
+                        out.setWritable((e.mode & 0200) != 0, false)
+                    }
+                }
+            }
+        }
+
+        def tarOut = new TarArchiveOutputStream(new FileOutputStream(rootfsTar))
+        tarOut.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX)
+        tarOut.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_POSIX)
+
+        def add
+        add = { File f, String rel ->
+            if (rel == "dev" || rel.startsWith("dev/") || rel == "proc" || rel.startsWith("proc/")) return
+            def entry
+            if (Files.isSymbolicLink(f.toPath())) {
+                entry = new TarArchiveEntry(rel, TarConstants.LF_SYMLINK)
+                entry.linkName = Files.readSymbolicLink(f.toPath()).toString()
+                tarOut.putArchiveEntry(entry)
+                tarOut.closeArchiveEntry()
+            } else if (f.isDirectory()) {
+                if (!rel.isEmpty()) {
+                    entry = new TarArchiveEntry(rel.endsWith("/") ? rel : rel + "/")
+                    tarOut.putArchiveEntry(entry)
+                    tarOut.closeArchiveEntry()
+                }
+                f.listFiles()?.sort { a,b -> a.name <=> b.name }.each {
+                    add(it, rel.isEmpty() ? it.name : rel + "/" + it.name)
+                }
+            } else if (f.isFile()) {
+                entry = new TarArchiveEntry(f, rel)
+                entry.setMode((int) (Files.getAttribute(
+                        f.toPath(), "unix:mode"
+                ) instanceof Number
+                        ? ((Number) Files.getAttribute(f.toPath(), "unix:mode")).intValue()
+                        : 0644));
+                entry.userId = 0
+                entry.groupId = 0
+                tarOut.putArchiveEntry(entry)
+                f.withInputStream { i -> i.transferTo(tarOut) }
+                tarOut.closeArchiveEntry()
+            }
+        }
+        add(target, "")
+        tarOut.finish()
+        tarOut.close()
+    }
+}
+
+def packages = httpGet("https://packages.termux.dev/apt/termux-main/dists/stable/main/binary-${termuxArch}/Packages").inputStream.getText("UTF-8")
+def getLatestPackageVersion = { String packageName ->
+    def matcher = packages =~ /(?ms)^Package:\s+${packageName}\s+.*?^Version:\s+([^\r\n]+)/
+    if (matcher) {
+        return matcher.group(1).trim()
+    }
+}
+tasks.register("prepareProot") {
+    outputs.dir(jniOut)
+    doLast {
+        jniOut.mkdirs()
+
+        def copyNative = { File from, String name ->
+            def out = new File(jniOut, name)
+            out.bytes = from.bytes
+            out.setExecutable(true, false)
+        }
+
+        def pkgRoot = "https://packages.termux.dev/apt/termux-main/pool/main"
+        def debs = file("$workDir/debs")
+        debs.mkdirs()
+        
+        [
+            [name: "proot", package: "proot", library: "proot", output: "libproot.so"],
+            [name: "proot", package: "proot", library: "loader", output: "libproot-loader.so"],
+            [name: "talloc", path: "libt", package: "libtalloc", output: "libtalloc.so"],
+            [name: "shmem", path: "liba", package: "libandroid-shmem", output: "libandroid-shmem.so"],
+            [name: "sysv", path: "liba", package: "libandroid-sysv-semaphore", output: "libandroid-sysv-semaphore.so"]
+        ].each { dep ->
+            def deb = new File(debs, "${dep.name}.deb")
+
+            if (!deb.exists()) {
+                download(
+                    "$pkgRoot/${dep.path ?: dep.name[0]}/${dep.package}/" +
+                    "${dep.package}_${getLatestPackageVersion(dep.package)}_${termuxArch}.deb",
+                    deb
+                )
+            }
+
+            new ArArchiveInputStream(new FileInputStream(deb)).withCloseable { ar ->
+                boolean found = false
+                def e
+                while ((e = ar.nextEntry) != null && !found) {
+                    if (e.name == "data.tar.xz" || e.name == "data.tar.gz") {
+                        new TarArchiveInputStream(new FilterInputStream(e.name.endsWith(".xz") ?
+                                                        new XZInputStream(ar) :
+                                                        new GzipCompressorInputStream(ar)) {
+                            @Override void close() {}
+                        }).withCloseable { tar ->
+                            def te
+                            while ((te = tar.nextTarEntry) != null) {
+                                if (te.isFile() && !te.isSymbolicLink() && te.name ==~ /(.*\/)?${dep.library ?: dep.output}(\.\d[\.\d]*)?/) {
+                                    def lib = new File(jniOut, dep.output)
+                                    lib.withOutputStream { os -> IOUtils.copy(tar, os) }
+                                    lib.setExecutable(true, false)
+                                    found = true
+                                    break;
+                                }
+                            }
+                        }
+                    } else ar.skip(e.size)
+                }
+            }
+        }
+
+        def prootSo = new File(jniOut, "libproot.so")
+        byte[] elf = prootSo.bytes
+        byte[] oldTalloc = "libtalloc.so.2".getBytes("US-ASCII")
+        byte[] newTalloc = "libtalloc.so".getBytes("US-ASCII")
+        for (int i = 0; i <= elf.length - oldTalloc.length; i++) {
+            boolean match = true
+            for (int j = 0; j < oldTalloc.length; j++) {
+                if (elf[i + j] != oldTalloc[j]) { match = false; break }
+            }
+            if (match) {
+                System.arraycopy(newTalloc, 0, elf, i, newTalloc.length)
+                for (int j = newTalloc.length; j < oldTalloc.length; j++) elf[i + j] = 0
+            }
+        }
+        prootSo.bytes = elf
+    }
+}
+
+tasks.register("bundleRootfs", Copy) {
+    dependsOn("fetchRootfs")
+    from(rootfsTar)
+    into(layout.projectDirectory.dir("src/main/assets"))
+}
+
+tasks.named("preBuild").configure {
+    dependsOn("prepareProot", "bundleRootfs")
+}

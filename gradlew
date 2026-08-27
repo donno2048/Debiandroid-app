@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+set -eu
+
+GRADLE_VERSION=8.9
+BASE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+CACHE="$BASE_DIR/.gradle-dist"
+DIST="$CACHE/gradle-$GRADLE_VERSION"
+ZIP="$CACHE/gradle-$GRADLE_VERSION-bin.zip"
+
+if [ ! -x "$DIST/bin/gradle" ]; then
+  mkdir -p "$CACHE"
+  if [ ! -f "$ZIP" ]; then
+    command -v curl >/dev/null 2>&1 || { echo "curl is required" >&2; exit 1; }
+    curl -fL "https://services.gradle.org/distributions/gradle-$GRADLE_VERSION-bin.zip" -o "$ZIP"
+  fi
+  rm -rf "$DIST"
+  command -v unzip >/dev/null 2>&1 || { echo "unzip is required" >&2; exit 1; }
+  unzip -q "$ZIP" -d "$CACHE"
+fi
+
+exec "$DIST/bin/gradle" "$@"
