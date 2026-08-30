@@ -277,6 +277,11 @@ tasks.register("bundleRootfs", Copy) {
     into(layout.projectDirectory.dir("src/main/assets"))
 }
 
+tasks.named("clean") {
+    delete jniOut
+    delete layout.projectDirectory.dir("src/main/assets")
+}
+
 tasks.named("preBuild").configure {
     dependsOn("prepareProot", "bundleRootfs")
 }
