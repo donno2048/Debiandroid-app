@@ -131,26 +131,28 @@ public final class MainActivity extends Activity {
 
             String[] args = {
                     "-l", "-0",
+                    "--kill-on-exit",
                     "-b", tmp.getAbsolutePath() + ":/dev/shm",
                     "-b", "/dev",
                     "-b", "/proc",
                     "-r", rootfs.getAbsolutePath(),
                     "-w", "/root",
-                    "/bin/bash",
-                    "--rcfile", "/root/.bashrc"
+                    "/usr/bin/env",
+                        "-i",
+                        "HOME=/root",
+                        "TMPDIR=/tmp",
+                        "LC_ALL=C.UTF-8",
+                        "TERM=xterm-256color",
+                        "DEBIAN_FRONTEND=noninteractive",
+                        "PATH=/usr/lib:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                        "/bin/bash", "--rcfile", "/root/.bashrc"
             };
 
             String[] env = {
-                    "HOME=/root",
-                    "TMPDIR=/tmp",
-                    "LC_ALL=C.UTF-8",
-                    "TERM=xterm-256color",
-                    "DEBIAN_FRONTEND=noninteractive",
                     "PROOT_TMP_DIR=" + tmp.getAbsolutePath(),
                     "PROOT_LOADER=" + new File(getApplicationInfo().nativeLibraryDir, "libproot-loader.so").getAbsolutePath(),
                     "LD_LIBRARY_PATH=" + getApplicationInfo().nativeLibraryDir,
-                    "PREFIX=" + rootfs.getAbsolutePath() + "/usr",
-                    "PATH=/usr/lib:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+                    "PREFIX=" + rootfs.getAbsolutePath() + "/usr"
             };
 
             runOnUiThread(() -> {
