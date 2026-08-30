@@ -94,6 +94,7 @@ def dockerJson = { String url, String token ->
 
 tasks.register("fetchRootfs") {
     outputs.file(rootfsTar)
+    dependsOn("clean")
 
     doLast {
         workDir.mkdirs()
@@ -191,6 +192,8 @@ def getLatestPackageVersion = { String packageName ->
 }
 tasks.register("prepareProot") {
     outputs.dir(jniOut)
+    dependsOn("clean")
+
     doLast {
         jniOut.mkdirs()
 
@@ -205,18 +208,21 @@ tasks.register("prepareProot") {
         debs.mkdirs()
         
         [
-            [name: "proot", package: "proot", library: "proot", output: "libproot.so"],
-            [name: "proot", package: "proot", library: "loader", output: "libproot-loader.so"],
-            [name: "talloc", path: "libt", package: "libtalloc", output: "libtalloc.so"],
-            [name: "shmem", path: "liba", package: "libandroid-shmem", output: "libandroid-shmem.so"],
-            [name: "sysv", path: "liba", package: "libandroid-sysv-semaphore", output: "libandroid-sysv-semaphore.so"]
+            [name: "proot", input: "proot", output: "libproot.so"],
+            [name: "proot", input: "loader", output: "libproot-loader.so"],
+            [name: "talloc", path: "libt", package: "libtalloc"],
+            [name: "shmem", path: "liba", package: "libandroid-shmem"],
+            [name: "sysv", path: "liba", package: "libandroid-sysv-semaphore"]
         ].each { dep ->
             def deb = new File(debs, "${dep.name}.deb")
+            def packageName = dep.package ?: dep.name
+            def input = dep.input ?: (dep.package + ".so")
+            def output = dep.output ?: (dep.package + ".so")
 
             if (!deb.exists()) {
                 download(
-                    "$pkgRoot/${dep.path ?: dep.name[0]}/${dep.package}/" +
-                    "${dep.package}_${getLatestPackageVersion(dep.package)}_${termuxArch}.deb",
+                    "$pkgRoot/${dep.path ?: dep.name[0]}/${packageName}/" +
+                    "${packageName}_${getLatestPackageVersion(packageName)}_${termuxArch}.deb",
                     deb
                 )
             }
@@ -233,8 +239,8 @@ tasks.register("prepareProot") {
                         }).withCloseable { tar ->
                             def te
                             while ((te = tar.nextTarEntry) != null) {
-                                if (te.isFile() && !te.isSymbolicLink() && te.name ==~ /(.*\/)?${dep.library ?: dep.output}(\.\d[\.\d]*)?/) {
-                                    def lib = new File(jniOut, dep.output)
+                                if (te.isFile() && !te.isSymbolicLink() && te.name ==~ /(.*\/)?${input}(\.\d[\.\d]*)?/) {
+                                    def lib = new File(jniOut, output)
                                     lib.withOutputStream { os -> IOUtils.copy(tar, os) }
                                     lib.setExecutable(true, false)
                                     found = true

@@ -13,5 +13,5 @@ Possible ABIs: arm64-v8a, armeabi-v7a, x86_64, x86.
 For example:
 
 ```sh
-./gradlew clean assembleDebug -Pabi=arm64-v8a
+./gradlew assembleDebug -Pabi=arm64-v8a
 ```

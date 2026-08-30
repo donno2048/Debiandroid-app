@@ -1,7 +1,9 @@
 package dev.debiandroid;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
@@ -13,6 +15,9 @@ import android.view.inputmethod.InputMethodManager;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ViewGroup;
+import android.net.Uri;
+import android.database.Cursor;
+import android.provider.OpenableColumns;
 
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
@@ -21,6 +26,7 @@ import com.termux.view.TerminalViewClient;
 
 import java.io.File;
 import java.io.OutputStream;
+import java.io.InputStream;
 import java.io.FileOutputStream;
 import java.util.concurrent.Executors;
 import java.nio.file.Files;
@@ -38,6 +44,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        handleOpenIntent(getIntent());
 
         terminal = new TerminalView(this, null);
         terminal.setTextSize(30);
@@ -160,10 +167,44 @@ public final class MainActivity extends Activity {
     }
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleOpenIntent(intent);
+    }
+
+    @Override
     protected void onDestroy() {
         if (session != null) session.finishIfRunning();
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         super.onDestroy();
+    }
+
+    private void handleOpenIntent(Intent intent) {
+        if (!Intent.ACTION_VIEW.equals(intent.getAction())) {
+            return;
+        }
+        Uri uri = intent.getData();
+        try (Cursor cursor = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                String name = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+                File destination = new File(getFilesDir(), "rootfs/root/" + name);
+                if (destination.exists()) {
+                    new AlertDialog.Builder(this)
+                            .setTitle("File already exists")
+                            .setMessage(name + " already exists in /root.")
+                            .setNegativeButton("Cancel", null)
+                            .setPositiveButton("Overwrite", (dialog, which) -> { destination.delete(); handleOpenIntent(intent); })
+                            .show();
+                } else {
+                    try (InputStream in = getContentResolver().openInputStream(uri)) {
+                        Files.copy(in, destination.toPath());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private final class Client implements TerminalSessionClient, TerminalViewClient {
