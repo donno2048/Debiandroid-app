@@ -130,10 +130,8 @@ public final class MainActivity extends Activity {
                 }
                 File bashrc = new File(home, ".bashrc");
                 try (OutputStream out = new FileOutputStream(bashrc)) {
-                    out.write(("PS1='\\[\\e[01;32m\\]\\u\\[\\e[00m\\]@\\[\\e[01;34m\\]\\w\\[\\e[00m\\]$ '\n" +
-                               "shopt -s histappend\n" +
-                               "shopt -s checkwinsize\n" +
-                               "shopt -s globstar\n" +
+                    out.write(("export PS1='\\[\\e[01;32m\\]\\u\\[\\e[00m\\]@\\[\\e[01;34m\\]\\w\\[\\e[00m\\]$ '\n" +
+                               "shopt -s histappend checkwinsize globstar\n" +
                                "alias ls='ls --color=auto --group-directories-first'\n" +
                                "alias grep='grep --color=auto'\n" +
                                "alias dir='dir --color=auto'\n" +
@@ -166,6 +164,7 @@ public final class MainActivity extends Activity {
                         "-i",
                         "HOME=/root",
                         "TMPDIR=/tmp",
+                        "PREFIX=/usr",
                         "LC_ALL=C.UTF-8",
                         "TERM=xterm-256color",
                         "DEBIAN_FRONTEND=noninteractive",
@@ -176,8 +175,7 @@ public final class MainActivity extends Activity {
             String[] env = {
                     "PROOT_TMP_DIR=" + tmp.getAbsolutePath(),
                     "PROOT_LOADER=" + new File(getApplicationInfo().nativeLibraryDir, "libproot-loader.so").getAbsolutePath(),
-                    "LD_LIBRARY_PATH=" + getApplicationInfo().nativeLibraryDir,
-                    "PREFIX=" + rootfs.getAbsolutePath() + "/usr"
+                    "LD_LIBRARY_PATH=" + getApplicationInfo().nativeLibraryDir
             };
 
             runOnUiThread(() -> {
@@ -272,10 +270,12 @@ public final class MainActivity extends Activity {
 
     private final class Client implements TerminalSessionClient, TerminalViewClient {
         @Override public void onTextChanged(TerminalSession s) {
-            runOnUiThread(() -> terminal.invalidate());
+            runOnUiThread(terminal::invalidate);
         }
         @Override public void onTitleChanged(TerminalSession s) {}
-        @Override public void onSessionFinished(TerminalSession s) {}
+        @Override public void onSessionFinished(TerminalSession s) {
+            runOnUiThread(() -> finishAndRemoveTask());
+        }
         @Override public void onCopyTextToClipboard(TerminalSession s, String text) {
             ((android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE))
                 .setPrimaryClip(android.content.ClipData.newPlainText("terminal", text));
