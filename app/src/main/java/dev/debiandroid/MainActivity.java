@@ -9,6 +9,7 @@ import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
 import android.system.Os;
 import android.widget.LinearLayout;
+import android.widget.Button;
 import android.graphics.Color;
 import android.view.WindowInsets;
 import android.view.inputmethod.InputMethodManager;
@@ -28,7 +29,10 @@ import java.io.File;
 import java.io.OutputStream;
 import java.io.InputStream;
 import java.io.FileOutputStream;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -40,6 +44,8 @@ public final class MainActivity extends Activity {
     private TerminalSession session;
     private TerminalView terminal;
     private WakeLock wakeLock;
+    private volatile boolean ctrlDown = false;
+    private volatile boolean altDown  = false;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -65,6 +71,24 @@ public final class MainActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Color.BLACK);
         root.addView(terminal, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
+
+        LinearLayout keybar = new LinearLayout(this);
+        keybar.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout row1 = new LinearLayout(this);
+        LinearLayout row2 = new LinearLayout(this);
+        addKeyButton(row1, "\u241B", () -> session.write("\033"),   null,                   false);
+        addKeyButton(row1, "\u21E5", () -> session.write("\t"),     null,                   false);
+        addKeyButton(row1, "HOME",   () -> session.write("\033[H"), null,                   false);
+        addKeyButton(row1, "\u2191", () -> session.write("\033[A"), null,                   true);
+        addKeyButton(row1, "END",    () -> session.write("\033[F"), null,                   false);
+        addKeyButton(row2, "CTRL",   () -> ctrlDown = true,         () -> ctrlDown = false, false);
+        addKeyButton(row2, "ALT",    () -> altDown = true,          () -> altDown = false,  false);
+        addKeyButton(row2, "\u2190", () -> session.write("\033[D"), null,                   true);
+        addKeyButton(row2, "\u2193", () -> session.write("\033[B"), null,                   true);
+        addKeyButton(row2, "\u2192", () -> session.write("\033[C"), null,                   true);
+        keybar.addView(row1, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
+        keybar.addView(row2, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
+        root.addView(keybar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(48 * getResources().getDisplayMetrics().density)));
         setContentView(root);
         root.setOnApplyWindowInsetsListener((v, insets) -> {
             v.setPadding(0, 0, 0, insets.getInsets(WindowInsets.Type.ime()).bottom);
@@ -210,6 +234,42 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private void addKeyButton(LinearLayout row, String label, Runnable onKeyDown, Runnable onKeyUp, boolean repeat) {
+        Button b = new Button(this);
+        b.setText(label);
+        b.setBackgroundColor(Color.BLACK);
+        b.setPadding(0, 0, 0, 0);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f);
+        lp.setMargins(0, 0, 0, 0);
+        b.setLayoutParams(lp);
+        final AtomicReference<ScheduledExecutorService> repeater = new AtomicReference<>(null);
+        b.setOnTouchListener((v, event) -> {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    b.setBackgroundColor(Color.GRAY);
+                    onKeyDown.run();
+                    if (repeat) {
+                        repeater.set(Executors.newSingleThreadScheduledExecutor());
+                        repeater.get().scheduleWithFixedDelay(onKeyDown, 350, 60, TimeUnit.MILLISECONDS);
+                    }
+                    return true;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    b.setBackgroundColor(Color.BLACK);
+                    if (onKeyUp != null) {
+                        onKeyUp.run();
+                    }
+                    if (repeat) {
+                        repeater.getAndSet(null).shutdownNow();
+                    }
+                    return true;
+            }
+            return false;
+        });
+        row.addView(b);
+    }
+
+
     private final class Client implements TerminalSessionClient, TerminalViewClient {
         @Override public void onTextChanged(TerminalSession s) {
             runOnUiThread(() -> terminal.invalidate());
@@ -242,8 +302,8 @@ public final class MainActivity extends Activity {
         @Override public boolean onKeyDown(int keyCode, KeyEvent e, TerminalSession session) { return false; }
         @Override public boolean onKeyUp(int keyCode, KeyEvent e) { return false; }
         @Override public boolean onLongPress(MotionEvent e) { return false; }
-        @Override public boolean readControlKey() { return false; }
-        @Override public boolean readAltKey() { return false; }
+        @Override public boolean readControlKey() { return ctrlDown; }
+        @Override public boolean readAltKey() { return altDown; }
         @Override public boolean readShiftKey() { return false; }
         @Override public boolean readFnKey() { return false; }
         @Override public boolean onCodePoint(int codePoint, boolean ctrlDown, TerminalSession session) { return false; }
