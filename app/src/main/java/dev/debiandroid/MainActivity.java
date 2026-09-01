@@ -130,6 +130,7 @@ public final class MainActivity extends Activity {
             }
 
             String[] args = {
+                    "proot",
                     "-l", "-0",
                     "--kill-on-exit",
                     "-b", tmp.getAbsolutePath() + ":/dev/shm",
@@ -144,7 +145,7 @@ public final class MainActivity extends Activity {
                         "LC_ALL=C.UTF-8",
                         "TERM=xterm-256color",
                         "DEBIAN_FRONTEND=noninteractive",
-                        "PATH=/usr/lib:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
                         "/bin/bash", "--rcfile", "/root/.bashrc"
             };
 
@@ -156,7 +157,7 @@ public final class MainActivity extends Activity {
             };
 
             runOnUiThread(() -> {
-                wakeLock = ((PowerManager) getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.SCREEN_DIM_WAKE_LOCK, "Debiandroid:WakeLock");
+                wakeLock = ((PowerManager) getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
                 session = new TerminalSession(
                                 new File(getApplicationInfo().nativeLibraryDir, "libproot.so").getAbsolutePath(),
                                 getFilesDir().getAbsolutePath(),
@@ -189,7 +190,7 @@ public final class MainActivity extends Activity {
         Uri uri = intent.getData();
         try (Cursor cursor = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
             if (cursor != null && cursor.moveToFirst()) {
-                String name = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+                String name = cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME));
                 File destination = new File(getFilesDir(), "rootfs/root/" + name);
                 if (destination.exists()) {
                     new AlertDialog.Builder(this)

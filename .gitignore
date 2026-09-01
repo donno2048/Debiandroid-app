@@ -5,3 +5,4 @@ app/src/main/assets/debian-sid.tar
 app/src/main/jniLibs/*/
 !app/src/main/jniLibs/.gitkeep
 **/.DS_Store
+*.hprof
