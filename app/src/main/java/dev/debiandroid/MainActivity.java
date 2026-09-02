@@ -16,6 +16,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ViewGroup;
+import android.view.ScaleGestureDetector;
 import android.net.Uri;
 import android.database.Cursor;
 import android.provider.OpenableColumns;
@@ -41,9 +42,11 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 
 public final class MainActivity extends Activity {
     private static final String MARKER = ".installed";
+    private ScaleGestureDetector scaleDetector;
     private TerminalSession session;
     private TerminalView terminal;
     private WakeLock wakeLock;
+    private float fontSize = 30f;
     private volatile boolean ctrlDown = false;
     private volatile boolean altDown  = false;
 
@@ -53,7 +56,27 @@ public final class MainActivity extends Activity {
         handleOpenIntent(getIntent());
 
         terminal = new TerminalView(this, null);
-        terminal.setTextSize(30);
+        terminal.setTextSize((int) fontSize);
+        scaleDetector = new ScaleGestureDetector(this,
+            new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                float spanStart;
+                float sizeStart;
+
+                @Override
+                public boolean onScaleBegin(ScaleGestureDetector d) {
+                    spanStart = d.getCurrentSpan();
+                    sizeStart = fontSize;
+                    return true;
+                }
+
+                @Override
+                public boolean onScale(ScaleGestureDetector d) {
+                    fontSize = Math.max(1f, sizeStart * d.getCurrentSpan() / spanStart);
+                    terminal.setTextSize((int) fontSize);
+                    return true;
+                }
+            }
+        );
         terminal.setFocusableInTouchMode(true);
         Client client = new Client();
         terminal.setTerminalViewClient(client);
@@ -189,6 +212,12 @@ public final class MainActivity extends Activity {
                 wakeLock.acquire();
             });
         });
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        scaleDetector.onTouchEvent(ev);
+        return super.dispatchTouchEvent(ev);
     }
 
     @Override
