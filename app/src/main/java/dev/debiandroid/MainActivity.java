@@ -171,6 +171,14 @@ public final class MainActivity extends Activity {
                         throw new RuntimeException("Failed to create /etc/hosts", e);
                     }
                 }
+                File arch = new File(rootfs, "var/lib/dpkg/arch");
+                if (!arch.exists()) {
+                    try (OutputStream out = new FileOutputStream(arch)) {
+                        out.write((BuildConfig.DEBIAN_ARCH + "\n").getBytes("UTF-8"));
+                    } catch (Exception e) {
+                        throw new RuntimeException("Failed to create /var/lib/dpkg/arch", e);
+                    }
+                }
                 try {marker.createNewFile();} catch (Exception e) {}
             }
 
