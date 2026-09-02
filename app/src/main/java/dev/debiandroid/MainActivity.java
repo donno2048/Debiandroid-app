@@ -78,20 +78,20 @@ public final class MainActivity extends Activity {
         LinearLayout row2 = new LinearLayout(this);
         addKeyButton(row1, "\u241B", () -> session.write("\033"),   null,                   false);
         addKeyButton(row1, "\u21E5", () -> session.write("\t"),     null,                   false);
-        addKeyButton(row1, "HOME",   () -> session.write("\033[H"), null,                   false);
-        addKeyButton(row1, "\u2191", () -> session.write("\033[A"), null,                   true);
-        addKeyButton(row1, "END",    () -> session.write("\033[F"), null,                   false);
+        addKeyButton(row1, "HOME",   () -> session.write(key('H')), null,                   false);
+        addKeyButton(row1, "\u2191", () -> session.write(key('A')), null,                   true);
+        addKeyButton(row1, "END",    () -> session.write(key('F')), null,                   false);
         addKeyButton(row2, "CTRL",   () -> ctrlDown = true,         () -> ctrlDown = false, false);
         addKeyButton(row2, "ALT",    () -> altDown = true,          () -> altDown = false,  false);
-        addKeyButton(row2, "\u2190", () -> session.write("\033[D"), null,                   true);
-        addKeyButton(row2, "\u2193", () -> session.write("\033[B"), null,                   true);
-        addKeyButton(row2, "\u2192", () -> session.write("\033[C"), null,                   true);
+        addKeyButton(row2, "\u2190", () -> session.write(key('D')), null,                   true);
+        addKeyButton(row2, "\u2193", () -> session.write(key('B')), null,                   true);
+        addKeyButton(row2, "\u2192", () -> session.write(key('C')), null,                   true);
         keybar.addView(row1, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
         keybar.addView(row2, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
-        root.addView(keybar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(48 * getResources().getDisplayMetrics().density)));
+        root.addView(keybar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(70 * getResources().getDisplayMetrics().density)));
         setContentView(root);
         root.setOnApplyWindowInsetsListener((v, insets) -> {
-            v.setPadding(0, 0, 0, insets.getInsets(WindowInsets.Type.ime()).bottom);
+            v.setPadding(0, insets.getInsets(WindowInsets.Type.displayCutout()).top, 0, insets.getInsets(WindowInsets.Type.ime()).bottom);
             return insets;
         });
         root.requestApplyInsets();
@@ -267,6 +267,10 @@ public final class MainActivity extends Activity {
         row.addView(b);
     }
 
+    private String key(char c) {
+        int m = 1 + (altDown ? 2 : 0) + (ctrlDown ? 4 : 0);
+        return (m == 1) ? "\033[" + c : "\033[1;" + m + c;
+    }
 
     private final class Client implements TerminalSessionClient, TerminalViewClient {
         @Override public void onTextChanged(TerminalSession s) {
