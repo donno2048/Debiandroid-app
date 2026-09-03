@@ -224,7 +224,9 @@ public final class MainActivity extends Activity {
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
-        scaleDetector.onTouchEvent(ev);
+        if ((ev.getRawY() < terminal.getBottom()) || scaleDetector.isInProgress()) {
+            scaleDetector.onTouchEvent(ev);
+        }
         return super.dispatchTouchEvent(ev);
     }
 
