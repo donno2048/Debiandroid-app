@@ -22,6 +22,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           path: app/build/outputs/apk/release/*.apk
+          name: "apk-${{ matrix.abi }}"
   release:
     needs: build
     runs-on: ubuntu-latest
