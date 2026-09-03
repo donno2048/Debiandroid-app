@@ -65,13 +65,18 @@ android {
         }
     }
 
-
     defaultConfig {
         minSdk 26
         targetSdk 35
         versionCode 1
         ndk { abiFilters abi }
         buildConfigField "String", "DEBIAN_ARCH", "\"$debianArch\""
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            output.outputFileName = "${rootProject.name}-${variant.name}-${abi}.apk"
+        }
     }
 
     packaging {
