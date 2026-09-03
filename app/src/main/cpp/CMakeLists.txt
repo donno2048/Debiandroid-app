@@ -1,0 +1,4 @@
+cmake_minimum_required(VERSION 3.22)
+project(termux)
+add_library(termux SHARED termux.c)
+target_link_options(termux PRIVATE "-Wl,-z,max-page-size=16384")

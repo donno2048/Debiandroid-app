@@ -59,6 +59,13 @@ android {
         buildConfig true
     }
 
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+        }
+    }
+
+
     defaultConfig {
         minSdk 26
         targetSdk 35
@@ -70,10 +77,10 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+            pickFirsts += "**/libtermux.so"
         }
         doNotStrip "**/libproot.so"
         doNotStrip "**/libproot-loader.so"
-        doNotStrip "**/libtermux.so"
         doNotStrip "**/libtalloc.so"
         doNotStrip "**/libandroid-shmem.so"
         doNotStrip "**/libandroid-sysv-semaphore.so"

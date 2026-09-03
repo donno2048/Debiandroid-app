@@ -1,6 +1,7 @@
 .gradle/
 .gradle-dist/
 app/build/
+app/.cxx/
 app/src/main/assets/debian-sid.tar
 app/src/main/jniLibs/*/
 !app/src/main/jniLibs/.gitkeep
