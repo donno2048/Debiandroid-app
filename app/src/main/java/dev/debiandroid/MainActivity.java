@@ -55,6 +55,8 @@ public final class MainActivity extends Activity {
         super.onCreate(state);
         handleOpenIntent(getIntent());
 
+        startService(new Intent(this, ForegroundService.class));
+
         terminal = new TerminalView(this, null);
         terminal.setTextSize((int) fontSize);
         scaleDetector = new ScaleGestureDetector(this,
@@ -239,6 +241,7 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        stopService(new Intent(this, ForegroundService.class));
         if (session != null) session.finishIfRunning();
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         super.onDestroy();
