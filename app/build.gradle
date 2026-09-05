@@ -59,6 +59,14 @@ android {
         buildConfig true
     }
 
+    buildTypes {
+        debug {
+            debuggable false
+            minifyEnabled true
+            zipAlignEnabled true
+        }
+    }
+
     externalNativeBuild {
         cmake {
             path "src/main/cpp/CMakeLists.txt"
