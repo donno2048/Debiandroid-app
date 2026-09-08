@@ -7,3 +7,4 @@ app/src/main/jniLibs/*/
 !app/src/main/jniLibs/.gitkeep
 **/.DS_Store
 *.hprof
+build/

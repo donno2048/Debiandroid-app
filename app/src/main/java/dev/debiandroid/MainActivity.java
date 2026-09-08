@@ -199,7 +199,7 @@ public final class MainActivity extends Activity {
                         "TMPDIR=/tmp",
                         "PREFIX=/usr",
                         "LC_ALL=C.UTF-8",
-                        "TERM=xterm-256color",
+                        "TERM=linux",
                         "DEBIAN_FRONTEND=noninteractive",
                         "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
                         "/bin/bash", "--rcfile", "/root/.bashrc"
@@ -316,7 +316,12 @@ public final class MainActivity extends Activity {
 
     private final class Client implements TerminalSessionClient, TerminalViewClient {
         @Override public void onTextChanged(TerminalSession s) {
-            runOnUiThread(terminal::invalidate);
+            int newTopRow = terminal.mEmulator.getScrollCounter() - terminal.getTopRow();
+            if ((terminal.isSelectingText() || terminal.getTopRow() != 0) && newTopRow < terminal.mEmulator.getScreen().getActiveTranscriptRows()) {
+                terminal.setTopRow(-newTopRow);
+            }
+            terminal.mEmulator.clearScrollCounter();
+            terminal.invalidate();
         }
         @Override public void onTitleChanged(TerminalSession s) {}
         @Override public void onSessionFinished(TerminalSession s) {
