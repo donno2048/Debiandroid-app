@@ -101,16 +101,16 @@ public final class MainActivity extends Activity {
         keybar.setOrientation(LinearLayout.VERTICAL);
         LinearLayout row1 = new LinearLayout(this);
         LinearLayout row2 = new LinearLayout(this);
-        addKeyButton(row1, "\u241B", () -> session.write("\033"),   null,                   false);
-        addKeyButton(row1, "\u21E5", () -> session.write("\t"),     null,                   false);
-        addKeyButton(row1, "HOME",   () -> session.write(key('H')), null,                   false);
-        addKeyButton(row1, "\u2191", () -> session.write(key('A')), null,                   true);
-        addKeyButton(row1, "END",    () -> session.write(key('F')), null,                   false);
-        addKeyButton(row2, "CTRL",   () -> ctrlDown = true,         () -> ctrlDown = false, false);
-        addKeyButton(row2, "ALT",    () -> altDown = true,          () -> altDown = false,  false);
-        addKeyButton(row2, "\u2190", () -> session.write(key('D')), null,                   true);
-        addKeyButton(row2, "\u2193", () -> session.write(key('B')), null,                   true);
-        addKeyButton(row2, "\u2192", () -> session.write(key('C')), null,                   true);
+        addKeyButton(row1, "\u241B", () -> session.write("\033"),   null,                   false, true);
+        addKeyButton(row1, "\u21E5", () -> session.write("\t"),     null,                   false, true);
+        addKeyButton(row1, "HOME",   () -> session.write(key('H')), null,                   false, true);
+        addKeyButton(row1, "\u2191", () -> session.write(key('A')), null,                   true,  true);
+        addKeyButton(row1, "END",    () -> session.write(key('F')), null,                   false, true);
+        addKeyButton(row2, "CTRL",   () -> ctrlDown = true,         () -> ctrlDown = false, false, false);
+        addKeyButton(row2, "ALT",    () -> altDown = true,          () -> altDown = false,  false, false);
+        addKeyButton(row2, "\u2190", () -> session.write(key('D')), null,                   true,  true);
+        addKeyButton(row2, "\u2193", () -> session.write(key('B')), null,                   true,  true);
+        addKeyButton(row2, "\u2192", () -> session.write(key('C')), null,                   true,  true);
         keybar.addView(row1, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
         keybar.addView(row2, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
         root.addView(keybar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(70 * getResources().getDisplayMetrics().density)));
@@ -274,7 +274,7 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private void addKeyButton(LinearLayout row, String label, Runnable onKeyDown, Runnable onKeyUp, boolean repeat) {
+    private void addKeyButton(LinearLayout row, String label, Runnable onKeyDown, Runnable onKeyUp, boolean repeat, boolean scroll) {
         Button b = new Button(this);
         b.setText(label);
         b.setBackgroundColor(Color.BLACK);
@@ -288,6 +288,9 @@ public final class MainActivity extends Activity {
                 case MotionEvent.ACTION_DOWN:
                     b.setBackgroundColor(Color.GRAY);
                     onKeyDown.run();
+                    if (scroll) {
+                        scrollToBottom();
+                    }
                     if (repeat) {
                         repeater.set(Executors.newSingleThreadScheduledExecutor());
                         repeater.get().scheduleWithFixedDelay(onKeyDown, 350, 60, TimeUnit.MILLISECONDS);
@@ -307,6 +310,12 @@ public final class MainActivity extends Activity {
             return false;
         });
         row.addView(b);
+    }
+
+    private void scrollToBottom() {
+        terminal.setTopRow(0);
+        terminal.mEmulator.clearScrollCounter();
+        terminal.invalidate();
     }
 
     private String key(char c) {
@@ -350,14 +359,33 @@ public final class MainActivity extends Activity {
         @Override public boolean shouldUseCtrlSpaceWorkaround() { return false; }
         @Override public boolean isTerminalViewSelected() { return true; }
         @Override public void copyModeChanged(boolean copyMode) {}
-        @Override public boolean onKeyDown(int keyCode, KeyEvent e, TerminalSession session) { return false; }
-        @Override public boolean onKeyUp(int keyCode, KeyEvent e) { return false; }
+        @Override public boolean onKeyDown(int keyCode, KeyEvent e, TerminalSession session) {
+            if (keyCode == KeyEvent.KEYCODE_CTRL_LEFT || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT) {
+                ctrlDown = true;
+            } else if (keyCode == KeyEvent.KEYCODE_ALT_LEFT || keyCode == KeyEvent.KEYCODE_ALT_RIGHT) {
+                altDown = true;
+            } else {
+                scrollToBottom();
+            }
+            return false;
+        }
+        @Override public boolean onKeyUp(int keyCode, KeyEvent e) {
+            if (keyCode == KeyEvent.KEYCODE_CTRL_LEFT || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT) {
+                ctrlDown = false;
+            } else if (keyCode == KeyEvent.KEYCODE_ALT_LEFT || keyCode == KeyEvent.KEYCODE_ALT_RIGHT) {
+                altDown = false;
+            }
+            return false;
+        }
         @Override public boolean onLongPress(MotionEvent e) { return false; }
         @Override public boolean readControlKey() { return ctrlDown; }
         @Override public boolean readAltKey() { return altDown; }
         @Override public boolean readShiftKey() { return false; }
         @Override public boolean readFnKey() { return false; }
-        @Override public boolean onCodePoint(int codePoint, boolean ctrlDown, TerminalSession session) { return false; }
+        @Override public boolean onCodePoint(int codePoint, boolean ctrlDown, TerminalSession session) {
+            scrollToBottom();
+            return false;
+        }
         @Override public void onEmulatorSet() {}
     }
 }
