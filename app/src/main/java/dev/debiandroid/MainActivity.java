@@ -10,6 +10,7 @@ import android.os.PowerManager.WakeLock;
 import android.system.Os;
 import android.widget.LinearLayout;
 import android.widget.Button;
+import android.widget.Toast;
 import android.graphics.Color;
 import android.view.WindowInsets;
 import android.view.inputmethod.InputMethodManager;
@@ -127,6 +128,9 @@ public final class MainActivity extends Activity {
             File home = new File(rootfs, "root");
             File marker = new File(rootfs, MARKER);
             if (!marker.exists()) {
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "Extracting rootfs please do not close the app", Toast.LENGTH_LONG).show();
+                });
                 rootfs.mkdirs();
                 tmp.mkdirs();
                 home.mkdirs();
@@ -151,7 +155,7 @@ public final class MainActivity extends Activity {
                         }
                     }
                 } catch (Exception e) {
-                    throw new RuntimeException("Failed to install rootfs", e);
+                    te_pst_cae("Failed to extract rootfs", e);
                 }
                 File bashrc = new File(home, ".bashrc");
                 try (OutputStream out = new FileOutputStream(bashrc)) {
@@ -163,14 +167,14 @@ public final class MainActivity extends Activity {
                                "alias diff='diff --color=auto'\n" +
                                "alias sudo=\n").getBytes("UTF-8"));
                 } catch (Exception e) {
-                    throw new RuntimeException("Failed to create .bashrc", e);
+                    te_pst_cae("Failed to create .bashrc", e);
                 }
                 File hosts = new File(rootfs, "etc/hosts");
                 if (!hosts.exists()) {
                     try (OutputStream out = new FileOutputStream(hosts)) {
                         out.write("127.0.0.1 localhost\n::1 localhost\n".getBytes("UTF-8"));
                     } catch (Exception e) {
-                        throw new RuntimeException("Failed to create /etc/hosts", e);
+                        te_pst_cae("Failed to create /etc/hosts", e);
                     }
                 }
                 File arch = new File(rootfs, "var/lib/dpkg/arch");
@@ -178,10 +182,14 @@ public final class MainActivity extends Activity {
                     try (OutputStream out = new FileOutputStream(arch)) {
                         out.write((BuildConfig.DEBIAN_ARCH + "\n").getBytes("UTF-8"));
                     } catch (Exception e) {
-                        throw new RuntimeException("Failed to create /var/lib/dpkg/arch", e);
+                        te_pst_cae("Failed to create /var/lib/dpkg/arch", e);
                     }
                 }
-                try {marker.createNewFile();} catch (Exception e) {}
+                try {
+                    marker.createNewFile();
+                } catch (Exception e) {
+                    te_pst_cae("Failed to mark extraction as complete", e);
+                }
             }
 
             Client client = new Client();
@@ -274,7 +282,7 @@ public final class MainActivity extends Activity {
                         try (InputStream in = getContentResolver().openInputStream(uri)) {
                             Files.copy(in, destination.toPath());
                         } catch (Exception e) {
-                            e.printStackTrace();
+                            te_pst_cae("Failed to open file", e);
                         }
                     }).start();
                 }
@@ -329,6 +337,20 @@ public final class MainActivity extends Activity {
     private String key(char c) {
         int m = 1 + (shiftDown ? 1 : 0) + (altDown ? 2 : 0) + (ctrlDown ? 4 : 0);
         return (m == 1) ? "\033O" + c : "\033[1;" + m + c;
+    }
+
+    // Toast Error, Print Stack Trace and Close App with Exception
+    private void te_pst_cae(String msg, Exception e) {
+        runOnUiThread(() -> {
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
+            throw new RuntimeException(msg, e);
+        });
+        while (true) {
+            try {
+                Thread.sleep(Long.MAX_VALUE);
+            } catch (InterruptedException ignored) {}
+        }
     }
 
     private final class Client implements TerminalSessionClient, TerminalViewClient {
