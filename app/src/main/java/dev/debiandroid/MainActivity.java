@@ -80,7 +80,6 @@ public final class MainActivity extends Activity {
             }
         );
         terminal.setFocusableInTouchMode(true);
-        Client client = new Client();
         terminal.setOnTouchListener((v, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 terminal.post(() -> {
@@ -112,13 +111,13 @@ public final class MainActivity extends Activity {
         addKeyButton(row2, "\u2192", () -> session.write(key('C')), null,                   true,  true);
         keybar.addView(row1, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
         keybar.addView(row2, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
-        root.addView(keybar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(70 * getResources().getDisplayMetrics().density)));
         root.setOnApplyWindowInsetsListener((v, insets) -> {
             int topInsets = insets.getInsets(WindowInsets.Type.statusBars() | WindowInsets.Type.displayCutout()).top;
             int bottomInsets = insets.getInsets(WindowInsets.Type.navigationBars() | WindowInsets.Type.ime()).bottom;
             v.setPadding(0, topInsets, 0, bottomInsets);
             return insets;
         });
+        setContentView(root);
         root.requestApplyInsets();
 
         new Thread(() -> {
@@ -184,8 +183,11 @@ public final class MainActivity extends Activity {
                 try {marker.createNewFile();} catch (Exception e) {}
             }
 
+            Client client = new Client();
             terminal.setTerminalViewClient(client);
-            setContentView(root);
+            runOnUiThread(() -> {
+                root.addView(keybar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(70 * getResources().getDisplayMetrics().density)));
+            });
 
             String[] args = {
                     "proot",
@@ -267,13 +269,15 @@ public final class MainActivity extends Activity {
                             .setPositiveButton("Overwrite", (dialog, which) -> { destination.delete(); handleOpenIntent(intent); })
                             .show();
                 } else {
-                    try (InputStream in = getContentResolver().openInputStream(uri)) {
-                        new Thread(() -> { Files.copy(in, destination.toPath()); }).start();
-                    }
+                    new Thread(() -> { 
+                        try (InputStream in = getContentResolver().openInputStream(uri)) {
+                            Files.copy(in, destination.toPath());
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }).start();
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
     }
 
