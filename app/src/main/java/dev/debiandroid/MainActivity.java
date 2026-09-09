@@ -81,7 +81,6 @@ public final class MainActivity extends Activity {
         );
         terminal.setFocusableInTouchMode(true);
         Client client = new Client();
-        terminal.setTerminalViewClient(client);
         terminal.setOnTouchListener((v, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 terminal.post(() -> {
@@ -114,14 +113,15 @@ public final class MainActivity extends Activity {
         keybar.addView(row1, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
         keybar.addView(row2, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
         root.addView(keybar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(70 * getResources().getDisplayMetrics().density)));
-        setContentView(root);
         root.setOnApplyWindowInsetsListener((v, insets) -> {
-            v.setPadding(0, insets.getInsets(WindowInsets.Type.displayCutout()).top, 0, insets.getInsets(WindowInsets.Type.ime()).bottom);
+            int topInsets = insets.getInsets(WindowInsets.Type.statusBars() | WindowInsets.Type.displayCutout()).top;
+            int bottomInsets = insets.getInsets(WindowInsets.Type.navigationBars() | WindowInsets.Type.ime()).bottom;
+            v.setPadding(0, topInsets, 0, bottomInsets);
             return insets;
         });
         root.requestApplyInsets();
 
-        Executors.newSingleThreadExecutor().execute(() -> {
+        new Thread(() -> {
             File rootfs = new File(getFilesDir(), "rootfs");
             File tmp = new File(rootfs, "tmp");
             File home = new File(rootfs, "root");
@@ -184,6 +184,9 @@ public final class MainActivity extends Activity {
                 try {marker.createNewFile();} catch (Exception e) {}
             }
 
+            terminal.setTerminalViewClient(client);
+            setContentView(root);
+
             String[] args = {
                     "proot",
                     "-l", "-0",
@@ -199,7 +202,7 @@ public final class MainActivity extends Activity {
                         "TMPDIR=/tmp",
                         "PREFIX=/usr",
                         "LC_ALL=C.UTF-8",
-                        "TERM=linux",
+                        "TERM=xterm-256color",
                         "DEBIAN_FRONTEND=noninteractive",
                         "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
                         "/bin/bash", "--rcfile", "/root/.bashrc"
@@ -221,12 +224,12 @@ public final class MainActivity extends Activity {
                 terminal.requestFocus();
                 wakeLock.acquire();
             });
-        });
+        }).start();
     }
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
-        if ((ev.getRawY() < terminal.getBottom()) || scaleDetector.isInProgress()) {
+        if ((ev.getY() < terminal.getBottom()) || scaleDetector.isInProgress()) {
             scaleDetector.onTouchEvent(ev);
         }
         return super.dispatchTouchEvent(ev);
@@ -255,7 +258,7 @@ public final class MainActivity extends Activity {
         try (Cursor cursor = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
             if (cursor != null && cursor.moveToFirst()) {
                 String name = cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME));
-                File destination = new File(getFilesDir(), "rootfs/root/" + name);
+                File destination = new File(getFilesDir(), "rootfs/root/" + new File(name).getName());
                 if (destination.exists()) {
                     new AlertDialog.Builder(this)
                             .setTitle("File already exists")
@@ -265,7 +268,7 @@ public final class MainActivity extends Activity {
                             .show();
                 } else {
                     try (InputStream in = getContentResolver().openInputStream(uri)) {
-                        Files.copy(in, destination.toPath());
+                        new Thread(() -> { Files.copy(in, destination.toPath()); }).start();
                     }
                 }
             }
@@ -320,7 +323,7 @@ public final class MainActivity extends Activity {
 
     private String key(char c) {
         int m = 1 + (altDown ? 2 : 0) + (ctrlDown ? 4 : 0);
-        return (m == 1) ? "\033[" + c : "\033[1;" + m + c;
+        return (m == 1) ? "\033O" + c : "\033O1;" + m + c;
     }
 
     private final class Client implements TerminalSessionClient, TerminalViewClient {
