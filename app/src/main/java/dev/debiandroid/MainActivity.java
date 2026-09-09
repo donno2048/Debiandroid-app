@@ -49,6 +49,7 @@ public final class MainActivity extends Activity {
     private float fontSize = 30f;
     private volatile boolean ctrlDown = false;
     private volatile boolean altDown  = false;
+    private volatile boolean shiftDown = false;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -326,12 +327,11 @@ public final class MainActivity extends Activity {
     }
 
     private String key(char c) {
-        int m = 1 + (altDown ? 2 : 0) + (ctrlDown ? 4 : 0);
-        return (m == 1) ? "\033O" + c : "\033O1;" + m + c;
+        int m = 1 + (shiftDown ? 1 : 0) + (altDown ? 2 : 0) + (ctrlDown ? 4 : 0);
+        return (m == 1) ? "\033O" + c : "\033[1;" + m + c;
     }
 
     private final class Client implements TerminalSessionClient, TerminalViewClient {
-        private volatile boolean shiftDown = false;
         private volatile boolean fnDown = false;
 
         @Override public void onTextChanged(TerminalSession s) {
