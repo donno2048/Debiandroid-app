@@ -324,6 +324,9 @@ public final class MainActivity extends Activity {
     }
 
     private final class Client implements TerminalSessionClient, TerminalViewClient {
+        private volatile boolean shiftDown = false;
+        private volatile boolean fnDown = false;
+
         @Override public void onTextChanged(TerminalSession s) {
             int newTopRow = terminal.mEmulator.getScrollCounter() - terminal.getTopRow();
             if ((terminal.isSelectingText() || terminal.getTopRow() != 0) && newTopRow < terminal.mEmulator.getScreen().getActiveTranscriptRows()) {
@@ -360,28 +363,53 @@ public final class MainActivity extends Activity {
         @Override public boolean isTerminalViewSelected() { return true; }
         @Override public void copyModeChanged(boolean copyMode) {}
         @Override public boolean onKeyDown(int keyCode, KeyEvent e, TerminalSession session) {
-            if (keyCode == KeyEvent.KEYCODE_CTRL_LEFT || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT) {
-                ctrlDown = true;
-            } else if (keyCode == KeyEvent.KEYCODE_ALT_LEFT || keyCode == KeyEvent.KEYCODE_ALT_RIGHT) {
-                altDown = true;
-            } else {
-                scrollToBottom();
+            switch (keyCode) {
+                case KeyEvent.KEYCODE_CTRL_LEFT:
+                case KeyEvent.KEYCODE_CTRL_RIGHT:
+                    ctrlDown = true;
+                    return false;
+                case KeyEvent.KEYCODE_ALT_LEFT:
+                case KeyEvent.KEYCODE_ALT_RIGHT:
+                    altDown = true;
+                    return false;
+                case KeyEvent.KEYCODE_SHIFT_LEFT:
+                case KeyEvent.KEYCODE_SHIFT_RIGHT:
+                    shiftDown = true;
+                    return false;
+                case KeyEvent.KEYCODE_FUNCTION:
+                    fnDown = true;
+                    return false;
+                default:
+                    scrollToBottom();
+                    return false;
             }
-            return false;
         }
         @Override public boolean onKeyUp(int keyCode, KeyEvent e) {
-            if (keyCode == KeyEvent.KEYCODE_CTRL_LEFT || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT) {
-                ctrlDown = false;
-            } else if (keyCode == KeyEvent.KEYCODE_ALT_LEFT || keyCode == KeyEvent.KEYCODE_ALT_RIGHT) {
-                altDown = false;
+            switch (keyCode) {
+                case KeyEvent.KEYCODE_CTRL_LEFT:
+                case KeyEvent.KEYCODE_CTRL_RIGHT:
+                    ctrlDown = false;
+                    return false;
+                case KeyEvent.KEYCODE_ALT_LEFT:
+                case KeyEvent.KEYCODE_ALT_RIGHT:
+                    altDown = false;
+                    return false;
+                case KeyEvent.KEYCODE_SHIFT_LEFT:
+                case KeyEvent.KEYCODE_SHIFT_RIGHT:
+                    shiftDown = false;
+                    return false;
+                case KeyEvent.KEYCODE_FUNCTION:
+                    fnDown = false;
+                    return false;
+                default:
+                    return false;
             }
-            return false;
         }
         @Override public boolean onLongPress(MotionEvent e) { return false; }
         @Override public boolean readControlKey() { return ctrlDown; }
         @Override public boolean readAltKey() { return altDown; }
-        @Override public boolean readShiftKey() { return false; }
-        @Override public boolean readFnKey() { return false; }
+        @Override public boolean readShiftKey() { return shiftDown; }
+        @Override public boolean readFnKey() { return fnDown; }
         @Override public boolean onCodePoint(int codePoint, boolean ctrlDown, TerminalSession session) {
             scrollToBottom();
             return false;
