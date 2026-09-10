@@ -143,6 +143,7 @@ public final class MainActivity extends Activity {
                         File out = new File(rootfs, n);
                         if (e.isDirectory()) {
                             out.mkdirs();
+                            Os.chmod(out.getAbsolutePath(), e.getMode() & 0777);
                         } else if (e.isSymbolicLink()) {
                             out.getParentFile().mkdirs();
                             Files.createSymbolicLink(out.toPath(), Path.of(e.getLinkName()));
@@ -192,12 +193,6 @@ public final class MainActivity extends Activity {
                 }
             }
 
-            Client client = new Client();
-            terminal.setTerminalViewClient(client);
-            runOnUiThread(() -> {
-                root.addView(keybar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(70 * getResources().getDisplayMetrics().density)));
-            });
-
             String[] args = {
                     "proot",
                     "-l", "-0",
@@ -205,6 +200,7 @@ public final class MainActivity extends Activity {
                     "-b", tmp.getAbsolutePath() + ":/dev/shm",
                     "-b", "/dev",
                     "-b", "/proc",
+                    "-b", "/sys",
                     "-r", rootfs.getAbsolutePath(),
                     "-w", "/root",
                     "/usr/bin/env",
@@ -227,11 +223,14 @@ public final class MainActivity extends Activity {
 
             runOnUiThread(() -> {
                 wakeLock = ((PowerManager) getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
+                Client client = new Client();
                 session = new TerminalSession(
                                 new File(getApplicationInfo().nativeLibraryDir, "libproot.so").getAbsolutePath(),
                                 getFilesDir().getAbsolutePath(),
                                 args, env, 2000, client);
                 terminal.attachSession(session);
+                terminal.setTerminalViewClient(client);
+                root.addView(keybar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(70 * getResources().getDisplayMetrics().density)));
                 terminal.requestFocus();
                 wakeLock.acquire();
             });
@@ -262,30 +261,36 @@ public final class MainActivity extends Activity {
     }
 
     private void handleOpenIntent(Intent intent) {
-        if (!Intent.ACTION_VIEW.equals(intent.getAction())) {
-            return;
-        }
-        Uri uri = intent.getData();
-        try (Cursor cursor = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
-            if (cursor != null && cursor.moveToFirst()) {
-                String name = cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME));
-                File destination = new File(getFilesDir(), "rootfs/root/" + new File(name).getName());
-                if (destination.exists()) {
-                    new AlertDialog.Builder(this)
-                            .setTitle("File already exists")
-                            .setMessage(name + " already exists in /root.")
-                            .setNegativeButton("Cancel", null)
-                            .setPositiveButton("Overwrite", (dialog, which) -> { destination.delete(); handleOpenIntent(intent); })
-                            .show();
-                } else {
-                    new Thread(() -> { 
-                        try (InputStream in = getContentResolver().openInputStream(uri)) {
-                            Files.copy(in, destination.toPath());
-                        } catch (Exception e) {
-                            tecae("Failed to open file", e);
-                        }
-                    }).start();
+        if (Intent.ACTION_VIEW.equals(intent.getAction())) {
+            Uri uri = intent.getData();
+            new Thread(() -> {
+                try (Cursor cursor = getContentResolver(.query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+                    runOnUiThread(() -> { _handleOpenIntent(cursor); });
                 }
+            }).start();
+        }
+    }
+
+
+    private void _handleOpenIntent(Cursor cursor) {
+        if (cursor != null && cursor.moveToFirst()) {
+            String name = cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME));
+            File destination = new File(getFilesDir(), "rootfs/root/" + new File(name).getName());
+            if (destination.exists()) {
+                new AlertDialog.Builder(this)
+                               .setTitle("File already exists")
+                               .setMessage(name + " already exists in /root.")
+                               .setNegativeButton("Cancel", null)
+                               .setPositiveButton("Overwrite", (dialog, which) -> { destination.delete(); _handleOpenIntent(cursor); })
+                               .show();
+            } else {
+                new Thread(() -> { 
+                    try (InputStream in = getContentResolver().openInputStream(uri)) {
+                        Files.copy(in, destination.toPath());
+                    } catch (Exception e) {
+                        tecae("Failed to open file", e);
+                    }
+                }).start();
             }
         }
     }
