@@ -265,32 +265,36 @@ public final class MainActivity extends Activity {
             Uri uri = intent.getData();
             new Thread(() -> {
                 try (Cursor cursor = getContentResolver(.query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
-                    runOnUiThread(() -> { _handleOpenIntent(cursor); });
+                    if (cursor != null && cursor.moveToFirst()) {
+                        _handleOpenIntent(cursor);
+                    }
                 }
             }).start();
         }
     }
 
-
     private void _handleOpenIntent(Cursor cursor) {
-        if (cursor != null && cursor.moveToFirst()) {
-            String name = cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME));
-            File destination = new File(getFilesDir(), "rootfs/root/" + new File(name).getName());
-            if (destination.exists()) {
+        String name = cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME));
+        File destination = new File(getFilesDir(), "rootfs/root/" + new File(name).getName());
+        if (destination.exists()) {
+            runOnUiThread(() -> {
                 new AlertDialog.Builder(this)
-                               .setTitle("File already exists")
-                               .setMessage(name + " already exists in /root.")
-                               .setNegativeButton("Cancel", null)
-                               .setPositiveButton("Overwrite", (dialog, which) -> { destination.delete(); _handleOpenIntent(cursor); })
-                               .show();
-            } else {
-                new Thread(() -> { 
-                    try (InputStream in = getContentResolver().openInputStream(uri)) {
-                        Files.copy(in, destination.toPath());
-                    } catch (Exception e) {
-                        tecae("Failed to open file", e);
-                    }
-                }).start();
+                                .setTitle("File already exists")
+                                .setMessage(name + " already exists in /root.")
+                                .setNegativeButton("Cancel", null)
+                                .setPositiveButton("Overwrite", (dialog, which) -> {
+                                    destination.delete();
+                                    new Thread(() -> {
+                                        _handleOpenIntent(cursor);
+                                    }).start();
+                                })
+                                .show();
+            });
+        } else {
+            try (InputStream in = getContentResolver().openInputStream(uri)) {
+                Files.copy(in, destination.toPath());
+            } catch (Exception e) {
+                tecae("Failed to open file", e);
             }
         }
     }
