@@ -17,7 +17,6 @@ import android.view.inputmethod.InputMethodManager;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ViewGroup;
-import android.view.ScaleGestureDetector;
 import android.net.Uri;
 import android.database.Cursor;
 import android.provider.OpenableColumns;
@@ -43,7 +42,6 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 
 public final class MainActivity extends Activity {
     private static final String MARKER = ".installed";
-    private ScaleGestureDetector scaleDetector;
     private TerminalSession session;
     private TerminalView terminal;
     private WakeLock wakeLock;
@@ -61,26 +59,6 @@ public final class MainActivity extends Activity {
 
         terminal = new TerminalView(this, null);
         terminal.setTextSize((int) fontSize);
-        scaleDetector = new ScaleGestureDetector(this,
-            new ScaleGestureDetector.SimpleOnScaleGestureListener() {
-                float spanStart;
-                float sizeStart;
-
-                @Override
-                public boolean onScaleBegin(ScaleGestureDetector d) {
-                    spanStart = d.getCurrentSpan();
-                    sizeStart = fontSize;
-                    return true;
-                }
-
-                @Override
-                public boolean onScale(ScaleGestureDetector d) {
-                    fontSize = Math.max(1f, sizeStart * d.getCurrentSpan() / spanStart);
-                    terminal.setTextSize((int) fontSize);
-                    return true;
-                }
-            }
-        );
         terminal.setFocusableInTouchMode(true);
         terminal.setOnTouchListener((v, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
@@ -392,7 +370,11 @@ public final class MainActivity extends Activity {
         @Override public void logVerbose(String tag, String message) { android.util.Log.v(tag, message); }
         @Override public void logStackTraceWithMessage(String tag, String message, Exception e) { android.util.Log.e(tag, message, e); }
         @Override public void logStackTrace(String tag, Exception e) { android.util.Log.e(tag, "", e); }
-        @Override public float onScale(float scale) { return scale; }
+        @Override public float onScale(float scale) {
+            fontSize = Math.max(1f, fontSize * scale);
+            terminal.setTextSize((int) fontSize);
+            return 1f;
+        }
         @Override public void onSingleTapUp(MotionEvent e) {}
         @Override public boolean shouldBackButtonBeMappedToEscape() { return false; }
         @Override public boolean shouldEnforceCharBasedInput() { return false; }
