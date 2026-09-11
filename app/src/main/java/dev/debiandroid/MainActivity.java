@@ -30,6 +30,7 @@ import java.io.File;
 import java.io.OutputStream;
 import java.io.InputStream;
 import java.io.FileOutputStream;
+import java.io.BufferedInputStream;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.Executors;
@@ -112,7 +113,7 @@ public final class MainActivity extends Activity {
                 rootfs.mkdirs();
                 tmp.mkdirs();
                 home.mkdirs();
-                try (TarArchiveInputStream tar = new TarArchiveInputStream(getAssets().open("debian-sid.tar"))) {
+                try (TarArchiveInputStream tar = new TarArchiveInputStream(new BufferedInputStream(getAssets().open("debian-sid.tar")))) {
                     TarArchiveEntry e;
                     while ((e = tar.getNextEntry()) != null) {
                         String n = e.getName();
