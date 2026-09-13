@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ClipboardManager;
+import android.content.ClipData;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
@@ -20,6 +22,7 @@ import android.view.ViewGroup;
 import android.net.Uri;
 import android.database.Cursor;
 import android.provider.OpenableColumns;
+import android.util.Log;
 
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
@@ -217,14 +220,6 @@ public final class MainActivity extends Activity {
     }
 
     @Override
-    public boolean dispatchTouchEvent(MotionEvent ev) {
-        if ((ev.getY() < terminal.getBottom()) || scaleDetector.isInProgress()) {
-            scaleDetector.onTouchEvent(ev);
-        }
-        return super.dispatchTouchEvent(ev);
-    }
-
-    @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
@@ -243,17 +238,16 @@ public final class MainActivity extends Activity {
         if (Intent.ACTION_VIEW.equals(intent.getAction())) {
             Uri uri = intent.getData();
             new Thread(() -> {
-                try (Cursor cursor = getContentResolver(.query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+                try (Cursor cursor = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
                     if (cursor != null && cursor.moveToFirst()) {
-                        _handleOpenIntent(cursor);
+                        _handleOpenIntent(cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)), uri);
                     }
                 }
             }).start();
         }
     }
 
-    private void _handleOpenIntent(Cursor cursor) {
-        String name = cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME));
+    private void _handleOpenIntent(String name, Uri uri) {
         File destination = new File(getFilesDir(), "rootfs/root/" + new File(name).getName());
         if (destination.exists()) {
             runOnUiThread(() -> {
@@ -264,7 +258,7 @@ public final class MainActivity extends Activity {
                                 .setPositiveButton("Overwrite", (dialog, which) -> {
                                     destination.delete();
                                     new Thread(() -> {
-                                        _handleOpenIntent(cursor);
+                                        _handleOpenIntent(name, uri);
                                     }).start();
                                 })
                                 .show();
@@ -356,21 +350,21 @@ public final class MainActivity extends Activity {
             runOnUiThread(() -> finishAndRemoveTask());
         }
         @Override public void onCopyTextToClipboard(TerminalSession s, String text) {
-            ((android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE))
-                .setPrimaryClip(android.content.ClipData.newPlainText("terminal", text));
+            ((ClipboardManager) getSystemService(CLIPBOARD_SERVICE))
+                .setPrimaryClip(ClipData.newPlainText("terminal", text));
         }
         @Override public void onPasteTextFromClipboard(TerminalSession s) {}
         @Override public void onBell(TerminalSession s) {}
         @Override public void onColorsChanged(TerminalSession s) {}
         @Override public void onTerminalCursorStateChange(boolean state) {}
         @Override public Integer getTerminalCursorStyle() { return null; }
-        @Override public void logError(String tag, String message) { android.util.Log.e(tag, message); }
-        @Override public void logWarn(String tag, String message) { android.util.Log.w(tag, message); }
-        @Override public void logInfo(String tag, String message) { android.util.Log.i(tag, message); }
-        @Override public void logDebug(String tag, String message) { android.util.Log.d(tag, message); }
-        @Override public void logVerbose(String tag, String message) { android.util.Log.v(tag, message); }
-        @Override public void logStackTraceWithMessage(String tag, String message, Exception e) { android.util.Log.e(tag, message, e); }
-        @Override public void logStackTrace(String tag, Exception e) { android.util.Log.e(tag, "", e); }
+        @Override public void logError(String tag, String message) { Log.e(tag, message); }
+        @Override public void logWarn(String tag, String message) { Log.w(tag, message); }
+        @Override public void logInfo(String tag, String message) { Log.i(tag, message); }
+        @Override public void logDebug(String tag, String message) { Log.d(tag, message); }
+        @Override public void logVerbose(String tag, String message) { Log.v(tag, message); }
+        @Override public void logStackTraceWithMessage(String tag, String message, Exception e) { Log.e(tag, message, e); }
+        @Override public void logStackTrace(String tag, Exception e) { Log.e(tag, "", e); }
         @Override public float onScale(float scale) {
             fontSize = Math.max(1f, fontSize * scale);
             terminal.setTextSize((int) fontSize);
