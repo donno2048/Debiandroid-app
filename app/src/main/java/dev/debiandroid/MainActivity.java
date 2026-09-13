@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ClipboardManager;
+import android.content.ClipData;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
@@ -17,10 +19,10 @@ import android.view.inputmethod.InputMethodManager;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ViewGroup;
-import android.view.ScaleGestureDetector;
 import android.net.Uri;
 import android.database.Cursor;
 import android.provider.OpenableColumns;
+import android.util.Log;
 
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
@@ -31,6 +33,7 @@ import java.io.File;
 import java.io.OutputStream;
 import java.io.InputStream;
 import java.io.FileOutputStream;
+import java.io.BufferedInputStream;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.Executors;
@@ -43,7 +46,6 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 
 public final class MainActivity extends Activity {
     private static final String MARKER = ".installed";
-    private ScaleGestureDetector scaleDetector;
     private TerminalSession session;
     private TerminalView terminal;
     private WakeLock wakeLock;
@@ -61,26 +63,6 @@ public final class MainActivity extends Activity {
 
         terminal = new TerminalView(this, null);
         terminal.setTextSize((int) fontSize);
-        scaleDetector = new ScaleGestureDetector(this,
-            new ScaleGestureDetector.SimpleOnScaleGestureListener() {
-                float spanStart;
-                float sizeStart;
-
-                @Override
-                public boolean onScaleBegin(ScaleGestureDetector d) {
-                    spanStart = d.getCurrentSpan();
-                    sizeStart = fontSize;
-                    return true;
-                }
-
-                @Override
-                public boolean onScale(ScaleGestureDetector d) {
-                    fontSize = Math.max(1f, sizeStart * d.getCurrentSpan() / spanStart);
-                    terminal.setTextSize((int) fontSize);
-                    return true;
-                }
-            }
-        );
         terminal.setFocusableInTouchMode(true);
         terminal.setOnTouchListener((v, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
@@ -134,7 +116,7 @@ public final class MainActivity extends Activity {
                 rootfs.mkdirs();
                 tmp.mkdirs();
                 home.mkdirs();
-                try (TarArchiveInputStream tar = new TarArchiveInputStream(getAssets().open("debian-sid.tar"))) {
+                try (TarArchiveInputStream tar = new TarArchiveInputStream(new BufferedInputStream(getAssets().open("debian-sid.tar")))) {
                     TarArchiveEntry e;
                     while ((e = tar.getNextEntry()) != null) {
                         String n = e.getName();
@@ -143,6 +125,7 @@ public final class MainActivity extends Activity {
                         File out = new File(rootfs, n);
                         if (e.isDirectory()) {
                             out.mkdirs();
+                            Os.chmod(out.getAbsolutePath(), e.getMode() & 0777);
                         } else if (e.isSymbolicLink()) {
                             out.getParentFile().mkdirs();
                             Files.createSymbolicLink(out.toPath(), Path.of(e.getLinkName()));
@@ -192,12 +175,6 @@ public final class MainActivity extends Activity {
                 }
             }
 
-            Client client = new Client();
-            terminal.setTerminalViewClient(client);
-            runOnUiThread(() -> {
-                root.addView(keybar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(70 * getResources().getDisplayMetrics().density)));
-            });
-
             String[] args = {
                     "proot",
                     "-l", "-0",
@@ -205,6 +182,7 @@ public final class MainActivity extends Activity {
                     "-b", tmp.getAbsolutePath() + ":/dev/shm",
                     "-b", "/dev",
                     "-b", "/proc",
+                    "-b", "/sys",
                     "-r", rootfs.getAbsolutePath(),
                     "-w", "/root",
                     "/usr/bin/env",
@@ -227,23 +205,18 @@ public final class MainActivity extends Activity {
 
             runOnUiThread(() -> {
                 wakeLock = ((PowerManager) getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
+                Client client = new Client();
+                terminal.setTerminalViewClient(client);
                 session = new TerminalSession(
                                 new File(getApplicationInfo().nativeLibraryDir, "libproot.so").getAbsolutePath(),
                                 getFilesDir().getAbsolutePath(),
                                 args, env, 2000, client);
                 terminal.attachSession(session);
+                root.addView(keybar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(70 * getResources().getDisplayMetrics().density)));
                 terminal.requestFocus();
                 wakeLock.acquire();
             });
         }).start();
-    }
-
-    @Override
-    public boolean dispatchTouchEvent(MotionEvent ev) {
-        if ((ev.getY() < terminal.getBottom()) || scaleDetector.isInProgress()) {
-            scaleDetector.onTouchEvent(ev);
-        }
-        return super.dispatchTouchEvent(ev);
     }
 
     @Override
@@ -262,30 +235,39 @@ public final class MainActivity extends Activity {
     }
 
     private void handleOpenIntent(Intent intent) {
-        if (!Intent.ACTION_VIEW.equals(intent.getAction())) {
-            return;
-        }
-        Uri uri = intent.getData();
-        try (Cursor cursor = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
-            if (cursor != null && cursor.moveToFirst()) {
-                String name = cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME));
-                File destination = new File(getFilesDir(), "rootfs/root/" + new File(name).getName());
-                if (destination.exists()) {
-                    new AlertDialog.Builder(this)
-                            .setTitle("File already exists")
-                            .setMessage(name + " already exists in /root.")
-                            .setNegativeButton("Cancel", null)
-                            .setPositiveButton("Overwrite", (dialog, which) -> { destination.delete(); handleOpenIntent(intent); })
-                            .show();
-                } else {
-                    new Thread(() -> { 
-                        try (InputStream in = getContentResolver().openInputStream(uri)) {
-                            Files.copy(in, destination.toPath());
-                        } catch (Exception e) {
-                            tecae("Failed to open file", e);
-                        }
-                    }).start();
+        if (Intent.ACTION_VIEW.equals(intent.getAction())) {
+            Uri uri = intent.getData();
+            new Thread(() -> {
+                try (Cursor cursor = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+                    if (cursor != null && cursor.moveToFirst()) {
+                        _handleOpenIntent(cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)), uri);
+                    }
                 }
+            }).start();
+        }
+    }
+
+    private void _handleOpenIntent(String name, Uri uri) {
+        File destination = new File(getFilesDir(), "rootfs/root/" + new File(name).getName());
+        if (destination.exists()) {
+            runOnUiThread(() -> {
+                new AlertDialog.Builder(this)
+                                .setTitle("File already exists")
+                                .setMessage(name + " already exists in /root.")
+                                .setNegativeButton("Cancel", null)
+                                .setPositiveButton("Overwrite", (dialog, which) -> {
+                                    destination.delete();
+                                    new Thread(() -> {
+                                        _handleOpenIntent(name, uri);
+                                    }).start();
+                                })
+                                .show();
+            });
+        } else {
+            try (InputStream in = getContentResolver().openInputStream(uri)) {
+                Files.copy(in, destination.toPath());
+            } catch (Exception e) {
+                tecae("Failed to open file", e);
             }
         }
     }
@@ -368,22 +350,26 @@ public final class MainActivity extends Activity {
             runOnUiThread(() -> finishAndRemoveTask());
         }
         @Override public void onCopyTextToClipboard(TerminalSession s, String text) {
-            ((android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE))
-                .setPrimaryClip(android.content.ClipData.newPlainText("terminal", text));
+            ((ClipboardManager) getSystemService(CLIPBOARD_SERVICE))
+                .setPrimaryClip(ClipData.newPlainText("terminal", text));
         }
         @Override public void onPasteTextFromClipboard(TerminalSession s) {}
         @Override public void onBell(TerminalSession s) {}
         @Override public void onColorsChanged(TerminalSession s) {}
         @Override public void onTerminalCursorStateChange(boolean state) {}
         @Override public Integer getTerminalCursorStyle() { return null; }
-        @Override public void logError(String tag, String message) { android.util.Log.e(tag, message); }
-        @Override public void logWarn(String tag, String message) { android.util.Log.w(tag, message); }
-        @Override public void logInfo(String tag, String message) { android.util.Log.i(tag, message); }
-        @Override public void logDebug(String tag, String message) { android.util.Log.d(tag, message); }
-        @Override public void logVerbose(String tag, String message) { android.util.Log.v(tag, message); }
-        @Override public void logStackTraceWithMessage(String tag, String message, Exception e) { android.util.Log.e(tag, message, e); }
-        @Override public void logStackTrace(String tag, Exception e) { android.util.Log.e(tag, "", e); }
-        @Override public float onScale(float scale) { return scale; }
+        @Override public void logError(String tag, String message) { Log.e(tag, message); }
+        @Override public void logWarn(String tag, String message) { Log.w(tag, message); }
+        @Override public void logInfo(String tag, String message) { Log.i(tag, message); }
+        @Override public void logDebug(String tag, String message) { Log.d(tag, message); }
+        @Override public void logVerbose(String tag, String message) { Log.v(tag, message); }
+        @Override public void logStackTraceWithMessage(String tag, String message, Exception e) { Log.e(tag, message, e); }
+        @Override public void logStackTrace(String tag, Exception e) { Log.e(tag, "", e); }
+        @Override public float onScale(float scale) {
+            fontSize = Math.max(1f, fontSize * scale);
+            terminal.setTextSize((int) fontSize);
+            return 1f;
+        }
         @Override public void onSingleTapUp(MotionEvent e) {}
         @Override public boolean shouldBackButtonBeMappedToEscape() { return false; }
         @Override public boolean shouldEnforceCharBasedInput() { return false; }
