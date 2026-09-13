@@ -161,6 +161,8 @@ tasks.register("fetchRootfs") {
                         out.setExecutable((e.mode & 0100) != 0, false)
                         out.setReadable((e.mode & 0400) != 0, false)
                         out.setWritable((e.mode & 0200) != 0, false)
+                    } else {
+                        throw new GradleException("${e.getPath()} has unsupported link flag: ${e.getLinkFlag()}")
                     }
                 }
             }
