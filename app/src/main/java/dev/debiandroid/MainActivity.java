@@ -206,12 +206,12 @@ public final class MainActivity extends Activity {
             runOnUiThread(() -> {
                 wakeLock = ((PowerManager) getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
                 Client client = new Client();
+                terminal.setTerminalViewClient(client);
                 session = new TerminalSession(
                                 new File(getApplicationInfo().nativeLibraryDir, "libproot.so").getAbsolutePath(),
                                 getFilesDir().getAbsolutePath(),
                                 args, env, 2000, client);
                 terminal.attachSession(session);
-                terminal.setTerminalViewClient(client);
                 root.addView(keybar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(70 * getResources().getDisplayMetrics().density)));
                 terminal.requestFocus();
                 wakeLock.acquire();
