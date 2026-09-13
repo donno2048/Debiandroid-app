@@ -39,10 +39,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.io.IOUtils;
 
 public final class MainActivity extends Activity {
     private static final String MARKER = ".installed";
@@ -61,23 +62,9 @@ public final class MainActivity extends Activity {
 
         startService(new Intent(this, ForegroundService.class));
 
-        terminal = new TerminalView(this, null);
-        terminal.setTextSize((int) fontSize);
-        terminal.setFocusableInTouchMode(true);
-        terminal.setOnTouchListener((v, event) -> {
-            if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                terminal.post(() -> {
-                    ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
-                        .showSoftInput(terminal, InputMethodManager.SHOW_IMPLICIT);
-                });
-            }
-            return false;
-        });
-
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Color.BLACK);
-        root.addView(terminal, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
 
         LinearLayout keybar = new LinearLayout(this);
         keybar.setOrientation(LinearLayout.VERTICAL);
@@ -127,12 +114,10 @@ public final class MainActivity extends Activity {
                             out.mkdirs();
                             Os.chmod(out.getAbsolutePath(), e.getMode() & 0777);
                         } else if (e.isSymbolicLink()) {
-                            out.getParentFile().mkdirs();
-                            Files.createSymbolicLink(out.toPath(), Path.of(e.getLinkName()));
+                            Files.createSymbolicLink(out.toPath(), Paths.get(e.getLinkName()));
                         } else if (e.isFile()) {
-                            out.getParentFile().mkdirs();
                             try (FileOutputStream fos = new FileOutputStream(out)) {
-                                tar.transferTo(fos);
+                                IOUtils.copy(tar, fos);
                             }
                             Os.chmod(out.getAbsolutePath(), e.getMode() & 0777);
                         }
@@ -204,7 +189,18 @@ public final class MainActivity extends Activity {
             };
 
             runOnUiThread(() -> {
-                wakeLock = ((PowerManager) getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
+                terminal = new TerminalView(this, null);
+                terminal.setTextSize((int) fontSize);
+                terminal.setFocusableInTouchMode(true);
+                terminal.setOnTouchListener((v, event) -> {
+                    if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                        terminal.post(() -> {
+                            ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
+                                .showSoftInput(terminal, InputMethodManager.SHOW_IMPLICIT);
+                        });
+                    }
+                    return false;
+                });
                 Client client = new Client();
                 terminal.setTerminalViewClient(client);
                 session = new TerminalSession(
@@ -212,8 +208,10 @@ public final class MainActivity extends Activity {
                                 getFilesDir().getAbsolutePath(),
                                 args, env, 2000, client);
                 terminal.attachSession(session);
+                root.addView(terminal, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
                 root.addView(keybar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(70 * getResources().getDisplayMetrics().density)));
                 terminal.requestFocus();
+                wakeLock = ((PowerManager) getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
                 wakeLock.acquire();
             });
         }).start();
