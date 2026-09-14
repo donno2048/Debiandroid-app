@@ -123,7 +123,7 @@ public final class MainActivity extends Activity {
                         }
                     }
                 } catch (Exception e) {
-                    tecae("Failed to extract rootfs", e);
+                    telfart("Failed to extract rootfs", e);
                 }
                 File bashrc = new File(home, ".bashrc");
                 try (OutputStream out = new FileOutputStream(bashrc)) {
@@ -135,14 +135,14 @@ public final class MainActivity extends Activity {
                                "alias diff='diff --color=auto'\n" +
                                "alias sudo=\n").getBytes("UTF-8"));
                 } catch (Exception e) {
-                    tecae("Failed to create .bashrc", e);
+                    telfart("Failed to create .bashrc", e);
                 }
                 File hosts = new File(rootfs, "etc/hosts");
                 if (!hosts.exists()) {
                     try (OutputStream out = new FileOutputStream(hosts)) {
                         out.write("127.0.0.1 localhost\n::1 localhost\n".getBytes("UTF-8"));
                     } catch (Exception e) {
-                        tecae("Failed to create /etc/hosts", e);
+                        telfart("Failed to create /etc/hosts", e);
                     }
                 }
                 File arch = new File(rootfs, "var/lib/dpkg/arch");
@@ -150,13 +150,13 @@ public final class MainActivity extends Activity {
                     try (OutputStream out = new FileOutputStream(arch)) {
                         out.write((BuildConfig.DEBIAN_ARCH + "\n").getBytes("UTF-8"));
                     } catch (Exception e) {
-                        tecae("Failed to create /var/lib/dpkg/arch", e);
+                        telfart("Failed to create /var/lib/dpkg/arch", e);
                     }
                 }
                 try {
                     marker.createNewFile();
                 } catch (Exception e) {
-                    tecae("Failed to mark extraction as complete", e);
+                    telfart("Failed to mark extraction as complete", e);
                 }
             }
 
@@ -265,7 +265,7 @@ public final class MainActivity extends Activity {
             try (InputStream in = getContentResolver().openInputStream(uri)) {
                 Files.copy(in, destination.toPath());
             } catch (Exception e) {
-                tecae("Failed to open file", e);
+                telfart("Failed to open file", e);
             }
         }
     }
@@ -319,11 +319,12 @@ public final class MainActivity extends Activity {
         return (m == 1) ? "\033O" + c : "\033[1;" + m + c;
     }
 
-    // Toast Error and Close App with Exception
-    private void tecae(String msg, Exception e) {
+    // Toast Error, Log, Finish And Remove Task
+    private void telfart(String msg, Exception e) {
         runOnUiThread(() -> {
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
-            throw new RuntimeException(msg, e);
+            Log.e("Debiandroid", msg, e);
+            finishAndRemoveTask();
         });
         while (true) {
             try {
