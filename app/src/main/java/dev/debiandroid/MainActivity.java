@@ -132,8 +132,7 @@ public final class MainActivity extends Activity {
                                "alias ls='ls --color=auto --group-directories-first'\n" +
                                "alias grep='grep --color=auto'\n" +
                                "alias dir='dir --color=auto'\n" +
-                               "alias diff='diff --color=auto'\n" +
-                               "alias sudo=\n").getBytes("UTF-8"));
+                               "alias diff='diff --color=auto'\n").getBytes("UTF-8"));
                 } catch (Exception e) {
                     telfart("Failed to create .bashrc", e);
                 }
