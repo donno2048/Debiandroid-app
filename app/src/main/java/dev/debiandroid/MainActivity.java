@@ -50,7 +50,7 @@ public final class MainActivity extends Activity {
     private volatile TerminalSession session;
     private volatile TerminalView terminal;
     private volatile WakeLock wakeLock;
-    private volatile float fontSize;
+    private volatile float fontSize = 30f;
     private volatile boolean ctrlDown = false;
     private volatile boolean altDown  = false;
     private volatile boolean shiftDown = false;
@@ -61,8 +61,6 @@ public final class MainActivity extends Activity {
         handleOpenIntent(getIntent());
 
         startService(new Intent(this, ForegroundService.class));
-
-        fontSize = 10f * getResources().getDisplayMetrics().density;
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -137,14 +135,14 @@ public final class MainActivity extends Activity {
                                "alias ls='ls --color=auto --group-directories-first'\n" +
                                "alias grep='grep --color=auto'\n" +
                                "alias dir='dir --color=auto'\n" +
-                               "alias diff='diff --color=auto'\n").getBytes("UTF-8"));
+                               "alias diff='diff --color=auto'\n").getBytes());
                 } catch (Exception e) {
                     telfart("Failed to create .bashrc", e);
                 }
                 File hosts = new File(rootfs, "etc/hosts");
                 if (!hosts.exists()) {
                     try (OutputStream out = new FileOutputStream(hosts)) {
-                        out.write("127.0.0.1 localhost\n::1 localhost\n".getBytes("UTF-8"));
+                        out.write("127.0.0.1 localhost\n::1 localhost\n".getBytes());
                     } catch (Exception e) {
                         telfart("Failed to create /etc/hosts", e);
                     }
@@ -152,7 +150,7 @@ public final class MainActivity extends Activity {
                 File arch = new File(rootfs, "var/lib/dpkg/arch");
                 if (!arch.exists()) {
                     try (OutputStream out = new FileOutputStream(arch)) {
-                        out.write((BuildConfig.DEBIAN_ARCH + "\n").getBytes("UTF-8"));
+                        out.write((BuildConfig.DEBIAN_ARCH + "\n").getBytes());
                     } catch (Exception e) {
                         telfart("Failed to create /var/lib/dpkg/arch", e);
                     }
@@ -358,8 +356,10 @@ public final class MainActivity extends Activity {
                 .setPrimaryClip(ClipData.newPlainText("terminal", text));
         }
         @Override public void onPasteTextFromClipboard(TerminalSession s) {
-            s.write(((ClipboardManager) getSystemService(CLIPBOARD_SERVICE))
-                        .getPrimaryClip().getItemAt(0).getText().toString());
+            try {
+                s.write(((ClipboardManager) getSystemService(CLIPBOARD_SERVICE))
+                            .getPrimaryClip().getItemAt(0).getText().toString());
+            } catch (Exception ignored) {}
         }
         @Override public void onBell(TerminalSession s) {}
         @Override public void onColorsChanged(TerminalSession s) {}
