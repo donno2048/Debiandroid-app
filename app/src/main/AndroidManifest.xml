@@ -13,7 +13,7 @@
             android:windowSoftInputMode="adjustResize"
             android:documentLaunchMode="always"
             android:alwaysRetainTaskState="true"
-            android:screenOrientation="fullSensor">
+            android:screenOrientation="fullUser">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
