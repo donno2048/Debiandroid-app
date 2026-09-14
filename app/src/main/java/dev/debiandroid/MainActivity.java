@@ -47,10 +47,10 @@ import org.apache.commons.io.IOUtils;
 
 public final class MainActivity extends Activity {
     private static final String MARKER = ".installed";
-    private TerminalSession session;
-    private TerminalView terminal;
-    private WakeLock wakeLock;
-    private float fontSize;
+    private volatile TerminalSession session;
+    private volatile TerminalView terminal;
+    private volatile WakeLock wakeLock;
+    private volatile float fontSize;
     private volatile boolean ctrlDown = false;
     private volatile boolean altDown  = false;
     private volatile boolean shiftDown = false;
@@ -330,10 +330,12 @@ public final class MainActivity extends Activity {
         });
         do {
             try {
-                Thread.sleep(2);
-            } catch (InterruptedException ignored) {}
+                Thread.sleep(1000);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
         } while(wakeLock.isHeld());
-        Thread.currentThread().interrupt();
+        throw new RuntimeException(msg, e);
     }
 
     private final class Client implements TerminalSessionClient, TerminalViewClient {
