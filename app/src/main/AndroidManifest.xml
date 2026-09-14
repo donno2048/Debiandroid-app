@@ -5,11 +5,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <application android:theme="@style/AppTheme" android:label="Debiandroid" android:icon="@mipmap/ic_launcher">
-        <service android:name=".ForegroundService" android:foregroundServiceType="specialUse"/>
+        <service android:name=".ForegroundService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="persistence" />
+        </service>
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:configChanges="orientation|keyboardHidden|screenSize|screenLayout"
             android:windowSoftInputMode="adjustResize"
             android:documentLaunchMode="always"
             android:alwaysRetainTaskState="true"
@@ -21,8 +23,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
-                <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:mimeType="*/*" />
+                <data android:scheme="content" android:mimeType="*/*" />
             </intent-filter>
         </activity>
     </application>

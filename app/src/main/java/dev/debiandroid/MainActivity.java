@@ -219,13 +219,6 @@ public final class MainActivity extends Activity {
     }
 
     @Override
-    protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        setIntent(intent);
-        handleOpenIntent(intent);
-    }
-
-    @Override
     protected void onDestroy() {
         stopService(new Intent(this, ForegroundService.class));
         if (session != null) session.finishIfRunning();
