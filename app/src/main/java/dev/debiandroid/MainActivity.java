@@ -326,8 +326,11 @@ public final class MainActivity extends Activity {
             finishAndRemoveTask();
         });
         while (true) {
+            if (!session.isRunning()) {
+                Thread.currentThread().interrupt();
+            }
             try {
-                Thread.sleep(Long.MAX_VALUE);
+                Thread.sleep(1);
             } catch (InterruptedException ignored) {}
         }
     }
