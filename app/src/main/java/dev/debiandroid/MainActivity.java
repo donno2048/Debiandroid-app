@@ -355,7 +355,10 @@ public final class MainActivity extends Activity {
             ((ClipboardManager) getSystemService(CLIPBOARD_SERVICE))
                 .setPrimaryClip(ClipData.newPlainText("terminal", text));
         }
-        @Override public void onPasteTextFromClipboard(TerminalSession s) {}
+        @Override public void onPasteTextFromClipboard(TerminalSession s) {
+            s.write(((ClipboardManager) getSystemService(CLIPBOARD_SERVICE))
+                        .getPrimaryClip().getItemAt(0).getText().toString());
+        }
         @Override public void onBell(TerminalSession s) {}
         @Override public void onColorsChanged(TerminalSession s) {}
         @Override public void onTerminalCursorStateChange(boolean state) {}
