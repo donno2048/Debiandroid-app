@@ -95,7 +95,7 @@ public final class MainActivity extends Activity {
             File rootfs = new File(getFilesDir(), "rootfs");
             File tmp = new File(rootfs, "tmp");
             File home = new File(rootfs, "root");
-            File marker = new File(rootfs, MARKER);
+            File marker = new File(getFilesDir(), MARKER);
             if (!marker.exists()) {
                 runOnUiThread(() -> {
                     Toast.makeText(this, "Extracting rootfs please do not close the app", Toast.LENGTH_LONG).show();
