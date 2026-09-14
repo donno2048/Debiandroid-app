@@ -50,7 +50,7 @@ public final class MainActivity extends Activity {
     private TerminalSession session;
     private TerminalView terminal;
     private WakeLock wakeLock;
-    private float fontSize = 30f;
+    private float fontSize;
     private volatile boolean ctrlDown = false;
     private volatile boolean altDown  = false;
     private volatile boolean shiftDown = false;
@@ -61,6 +61,8 @@ public final class MainActivity extends Activity {
         handleOpenIntent(getIntent());
 
         startService(new Intent(this, ForegroundService.class));
+
+        fontSize = 10f * getResources().getDisplayMetrics().density;
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -326,14 +328,12 @@ public final class MainActivity extends Activity {
             Log.e("Debiandroid", msg, e);
             finishAndRemoveTask();
         });
-        while (true) {
-            if (!wakeLock.isHeld()) {
-                Thread.currentThread().interrupt();
-            }
+        do {
             try {
-                Thread.sleep(1);
+                Thread.sleep(2);
             } catch (InterruptedException ignored) {}
-        }
+        } while(wakeLock.isHeld());
+        Thread.currentThread().interrupt();
     }
 
     private final class Client implements TerminalSessionClient, TerminalViewClient {
