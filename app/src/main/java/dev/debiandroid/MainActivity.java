@@ -90,6 +90,9 @@ public final class MainActivity extends Activity {
         });
         setContentView(root);
         root.requestApplyInsets();
+        
+        wakeLock = ((PowerManager) getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
+        wakeLock.acquire();
 
         new Thread(() -> {
             File rootfs = new File(getFilesDir(), "rootfs");
@@ -210,8 +213,6 @@ public final class MainActivity extends Activity {
                 root.addView(terminal, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
                 root.addView(keybar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int)(70 * getResources().getDisplayMetrics().density)));
                 terminal.requestFocus();
-                wakeLock = ((PowerManager) getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
-                wakeLock.acquire();
             });
         }).start();
     }
@@ -326,7 +327,7 @@ public final class MainActivity extends Activity {
             finishAndRemoveTask();
         });
         while (true) {
-            if (!session.isRunning()) {
+            if (!wakeLock.isHeld()) {
                 Thread.currentThread().interrupt();
             }
             try {
