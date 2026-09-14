@@ -47,6 +47,7 @@ import org.apache.commons.io.IOUtils;
 
 public final class MainActivity extends Activity {
     private static final String MARKER = ".installed";
+    private static volatile int activeActivities = 0;
     private volatile TerminalSession session;
     private volatile TerminalView terminal;
     private volatile WakeLock wakeLock;
@@ -59,6 +60,10 @@ public final class MainActivity extends Activity {
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         
+        synchronized (MainActivity.class) {
+            activeActivities++;
+        }
+
         wakeLock = ((PowerManager) getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
         wakeLock.acquire();
 
@@ -220,7 +225,11 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
-        stopService(new Intent(this, ForegroundService.class));
+        synchronized (MainActivity.class) {
+            if (--activeActivities == 0) {
+                stopService(new Intent(this, ForegroundService.class));
+            }
+        }
         if (session != null) session.finishIfRunning();
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         super.onDestroy();
