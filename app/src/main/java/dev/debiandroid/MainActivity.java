@@ -58,6 +58,10 @@ public final class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        
+        wakeLock = ((PowerManager) getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
+        wakeLock.acquire();
+
         handleOpenIntent(getIntent());
 
         startService(new Intent(this, ForegroundService.class));
@@ -90,9 +94,6 @@ public final class MainActivity extends Activity {
         });
         setContentView(root);
         root.requestApplyInsets();
-        
-        wakeLock = ((PowerManager) getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
-        wakeLock.acquire();
 
         new Thread(() -> {
             File rootfs = new File(getFilesDir(), "rootfs");
