@@ -305,7 +305,7 @@ tasks.register("bundleRootfs", Copy) {
 }
 
 tasks.named("clean") {
-    delete file("src/main/jniLibs")
+    delete layout.projectDirectory.dir("src/main/jniLibs")
     delete layout.projectDirectory.dir("src/main/assets")
 }
 
