@@ -204,7 +204,7 @@ public final class MainActivity extends Activity {
                     if (event.getAction() == MotionEvent.ACTION_DOWN) {
                         terminal.post(() -> {
                             ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
-                                .showSoftInput(terminal, InputMethodManager.SHOW_IMPLICIT);
+                                .showSoftInput(terminal, 0);
                         });
                     }
                     return false;
