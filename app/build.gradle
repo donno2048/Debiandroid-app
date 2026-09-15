@@ -25,6 +25,7 @@ plugins {
 dependencies {
     implementation "com.github.Termux.termux-app:terminal-view:0.118.0"
     implementation "org.apache.commons:commons-compress:1.28.0"
+    implementation "androidx.core:core:1.16.0"
 }
 
 def abi = providers.gradleProperty("abi").get()
@@ -75,7 +76,7 @@ android {
 
     defaultConfig {
         minSdk 28
-        targetSdk 35
+        targetSdk 36
         versionCode 1
         ndk { abiFilters abi }
         buildConfigField "String", "DEBIAN_ARCH", "\"$debianArch\""
