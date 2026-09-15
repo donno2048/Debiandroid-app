@@ -14,7 +14,6 @@ import android.widget.LinearLayout;
 import android.widget.Button;
 import android.widget.Toast;
 import android.graphics.Color;
-import android.view.WindowInsets;
 import android.view.inputmethod.InputMethodManager;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -23,6 +22,9 @@ import android.net.Uri;
 import android.database.Cursor;
 import android.provider.OpenableColumns;
 import android.util.Log;
+
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
@@ -91,9 +93,9 @@ public final class MainActivity extends Activity {
         addKeyButton(row2, "\u2192", () -> session.write(key('C')), null,                   true,  true);
         keybar.addView(row1, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
         keybar.addView(row2, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f));
-        root.setOnApplyWindowInsetsListener((v, insets) -> {
-            int topInsets = insets.getInsets(WindowInsets.Type.statusBars() | WindowInsets.Type.displayCutout()).top;
-            int bottomInsets = insets.getInsets(WindowInsets.Type.navigationBars() | WindowInsets.Type.ime()).bottom;
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> { 
+            int topInsets = insets.getInsets(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.displayCutout()).top;
+            int bottomInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars() | WindowInsetsCompat.Type.ime()).bottom;
             v.setPadding(0, topInsets, 0, bottomInsets);
             return insets;
         });
@@ -202,10 +204,7 @@ public final class MainActivity extends Activity {
                 terminal.setFocusableInTouchMode(true);
                 terminal.setOnTouchListener((v, event) -> {
                     if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                        terminal.post(() -> {
-                            ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE))
-                                .showSoftInput(terminal, 0);
-                        });
+                        ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(terminal, 0);
                     }
                     return false;
                 });
