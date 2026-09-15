@@ -2,13 +2,10 @@ package dev.debiandroid;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Context;
 import android.content.Intent;
 import android.content.ClipboardManager;
 import android.content.ClipData;
 import android.os.Bundle;
-import android.os.PowerManager;
-import android.os.PowerManager.WakeLock;
 import android.system.Os;
 import android.widget.LinearLayout;
 import android.widget.Button;
@@ -50,11 +47,11 @@ public final class MainActivity extends Activity {
     private static volatile int activeActivities = 0;
     private volatile TerminalSession session;
     private volatile TerminalView terminal;
-    private volatile WakeLock wakeLock;
     private volatile float fontSize = 30f;
     private volatile boolean ctrlDown = false;
     private volatile boolean altDown  = false;
     private volatile boolean shiftDown = false;
+    private volatile boolean alive = true;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -63,9 +60,6 @@ public final class MainActivity extends Activity {
         synchronized (MainActivity.class) {
             activeActivities++;
         }
-
-        wakeLock = ((PowerManager) getSystemService(Context.POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
-        wakeLock.acquire();
 
         handleOpenIntent(getIntent());
 
@@ -231,7 +225,7 @@ public final class MainActivity extends Activity {
             }
         }
         if (session != null) session.finishIfRunning();
-        if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+        alive = false;
         super.onDestroy();
     }
 
@@ -335,7 +329,7 @@ public final class MainActivity extends Activity {
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
             }
-        } while(wakeLock.isHeld());
+        } while(alive);
         throw new RuntimeException(msg, e);
     }
 
