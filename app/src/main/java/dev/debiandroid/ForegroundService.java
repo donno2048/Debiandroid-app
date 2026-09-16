@@ -34,7 +34,7 @@ public class ForegroundService extends Service {
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
         wakeLock.acquire();
-        wifiLock = ((WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE)).createWifiLock(WIFI_MODE, "Debiandroid:WakeLock");
+        wifiLock = ((WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE)).createWifiLock(WIFI_MODE, "Debiandroid:WifiLock");
         wifiLock.acquire();
         if (!pm.isIgnoringBatteryOptimizations(getPackageName())) {
             Intent igroneOptimizations = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + getPackageName()));
