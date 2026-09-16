@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
+import android.os.Build;
 import android.provider.Settings;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
@@ -16,6 +17,10 @@ import android.net.wifi.WifiManager.WifiLock;
 
 public class ForegroundService extends Service {
     private static final String CHANNEL = "debiandroid";
+    @SuppressWarnings("deprecation")
+    private static final int WIFI_MODE = Build.VERSION.SDK_INT < 34
+                                            ? WifiManager.WIFI_MODE_FULL_HIGH_PERF
+                                            : WifiManager.WIFI_MODE_FULL_LOW_LATENCY;
     private static WakeLock wakeLock;
     private static WifiLock wifiLock;
 
@@ -30,7 +35,7 @@ public class ForegroundService extends Service {
                         .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
         wakeLock.acquire();
         wifiLock = ((WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE))
-                        .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "Debiandroid:WakeLock");
+                        .createWifiLock(WIFI_MODE, "Debiandroid:WakeLock");
         wifiLock.acquire();
         Intent igroneOptimizations = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + getPackageName()));
         igroneOptimizations.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
