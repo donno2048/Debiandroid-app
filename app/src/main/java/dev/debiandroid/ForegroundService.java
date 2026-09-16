@@ -31,15 +31,16 @@ public class ForegroundService extends Service {
             new NotificationChannel(CHANNEL, "Debiandroid", NotificationManager.IMPORTANCE_NONE)
         );
         startForeground(1, new Notification.Builder(this, CHANNEL).setSmallIcon(R.mipmap.ic_launcher).build());
-        wakeLock = ((PowerManager) getSystemService(Context.POWER_SERVICE))
-                        .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
         wakeLock.acquire();
-        wifiLock = ((WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE))
-                        .createWifiLock(WIFI_MODE, "Debiandroid:WakeLock");
+        wifiLock = ((WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE)).createWifiLock(WIFI_MODE, "Debiandroid:WakeLock");
         wifiLock.acquire();
-        Intent igroneOptimizations = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + getPackageName()));
-        igroneOptimizations.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(igroneOptimizations);
+        if (!pm.isIgnoringBatteryOptimizations(getPackageName())) {
+            Intent igroneOptimizations = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + getPackageName()));
+            igroneOptimizations.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(igroneOptimizations);
+        }
     }
 
     @Override
