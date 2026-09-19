@@ -14,6 +14,10 @@ import android.provider.Settings;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.Icon;
 
 public final class ForegroundService extends Service {
     private static final String CHANNEL = "debiandroid";
@@ -30,7 +34,7 @@ public final class ForegroundService extends Service {
         getSystemService(NotificationManager.class).createNotificationChannel(
             new NotificationChannel(CHANNEL, "Debiandroid", NotificationManager.IMPORTANCE_NONE)
         );
-        startForeground(1, new Notification.Builder(this, CHANNEL).setSmallIcon(R.mipmap.ic_launcher).build());
+        startForeground(1, new Notification.Builder(this, CHANNEL).setSmallIcon(getTransparentIcon()).build());
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
         wakeLock.acquire();
@@ -52,4 +56,14 @@ public final class ForegroundService extends Service {
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) { return START_NOT_STICKY; }
     @Override public IBinder onBind(Intent intent) { return null; }
+
+    private Icon getTransparentIcon() {
+        // For old API versions the notification can be drawn even with NotificationManager.IMPORTANCE_NONE
+        // So we won't just use R.mipmap.ic_launcher because of transparency issues
+        Drawable d = getDrawable(R.drawable.ic_launcher);
+        Bitmap b = Bitmap.createBitmap(22, 22, Bitmap.Config.ALPHA_8);
+        d.setBounds(-7, -7, 29, 29);
+        d.draw(new Canvas(b));
+        return Icon.createWithBitmap(b);
+    }
 }
