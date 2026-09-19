@@ -49,7 +49,7 @@ public final class MainActivity extends Activity {
     private static volatile int activeActivities = 0;
     private volatile TerminalSession session;
     private volatile TerminalView terminal;
-    private volatile float fontSize = 30f;
+    private volatile float fontSize;
     private volatile boolean ctrlDown = false;
     private volatile boolean altDown  = false;
     private volatile boolean shiftDown = false;
@@ -66,6 +66,8 @@ public final class MainActivity extends Activity {
         handleOpenIntent(getIntent());
 
         startService(new Intent(this, ForegroundService.class));
+
+        fontSize = 10f * getResources().getDisplayMetrics().density;
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
