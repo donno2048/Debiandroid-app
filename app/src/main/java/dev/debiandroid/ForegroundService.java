@@ -34,7 +34,10 @@ public final class ForegroundService extends Service {
         getSystemService(NotificationManager.class).createNotificationChannel(
             new NotificationChannel(CHANNEL, "Debiandroid", NotificationManager.IMPORTANCE_NONE)
         );
-        startForeground(1, new Notification.Builder(this, CHANNEL).setSmallIcon(getTransparentIcon()).build());
+        startForeground(1, new Notification.Builder(this, CHANNEL)
+                                           .setSmallIcon(getTransparentIcon())
+                                           .setSubText("Debiandroid is running")
+                                           .build());
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Debiandroid:WakeLock");
         wakeLock.acquire();
