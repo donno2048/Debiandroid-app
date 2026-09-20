@@ -67,7 +67,7 @@ public final class MainActivity extends Activity {
 
         startService(new Intent(this, ForegroundService.class));
 
-        fontSize = 10f * getResources().getDisplayMetrics().density;
+        fontSize = 10f * getResources().getDisplayMetrics().scaledDensity;
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
