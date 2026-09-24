@@ -19,6 +19,7 @@ import android.net.Uri;
 import android.database.Cursor;
 import android.provider.OpenableColumns;
 import android.util.Log;
+import android.util.TypedValue;
 
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -67,7 +68,7 @@ public final class MainActivity extends Activity {
 
         startService(new Intent(this, ForegroundService.class));
 
-        fontSize = 10f * getResources().getDisplayMetrics().scaledDensity;
+        fontSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 10, getResources().getDisplayMetrics());
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
